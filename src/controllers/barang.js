@@ -33,12 +33,12 @@ export async function add(req, res) {
 
 // UPDATE: PUT /api/barang/:id
 export async function update(req, res) {
-  const { id_barang, nama_barang, satuan, jumlah, harga } = req.body;
+  const { id_barang, nama_barang, satuan, harga } = req.body;
 
   try {
     const [result] = await pool.query(
-      "UPDATE tbl_barang SET nama_barang = ?, satuan = ?, jumlah = ?, harga = ? WHERE id_barang = ?",
-      [nama_barang, satuan, jumlah, harga, id_barang],
+      "UPDATE tbl_barang SET nama_barang = ?, satuan = ?, harga = ? WHERE id_barang = ?",
+      [nama_barang, satuan, harga, id_barang],
     );
 
     if (result.affectedRows === 0) {
