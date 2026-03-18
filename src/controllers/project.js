@@ -2,13 +2,14 @@ import { pool } from "../config/db.js";
 
 export async function get(req, res) {
   try {
-    const [rows] = await pool.query(
+    const result = await pool.query(
       `SELECT *
        FROM tbl_project
        WHERE status = 1
        ORDER BY id_project DESC`,
     );
-    return res.json(rows);
+
+    return res.json(result.rows);
   } catch (err) {
     return res.status(500).json({
       message: "Gagal ambil data project",
@@ -28,15 +29,16 @@ export async function add(req, res) {
   const alamatVal = typeof alamat === "string" ? alamat.trim() : "";
 
   try {
-    const [result] = await pool.query(
+    const result = await pool.query(
       `INSERT INTO tbl_project (nama_project, alamat, created_at, updated_at)
-       VALUES (?, ?, NOW(), NOW())`,
+       VALUES ($1, $2, NOW(), NOW())
+       RETURNING id_project`,
       [namaVal, alamatVal],
     );
 
     return res.status(201).json({
       message: "Project berhasil ditambahkan",
-      id: result.insertId,
+      id: result.rows[0].id_project,
     });
   } catch (err) {
     return res.status(500).json({
@@ -67,14 +69,17 @@ export async function update(req, res) {
   }
 
   try {
-    const [result] = await pool.query(
+    const result = await pool.query(
       `UPDATE tbl_project
-       SET nama_project = ?, alamat = ?, status = ?, updated_at = NOW()
-       WHERE id_project = ?`,
+       SET nama_project = $1,
+           alamat = $2,
+           status = $3,
+           updated_at = NOW()
+       WHERE id_project = $4`,
       [namaVal, alamatVal, statusNum, idNum],
     );
 
-    if (result.affectedRows === 0) {
+    if (result.rowCount === 0) {
       return res.status(404).json({ message: "Project tidak ditemukan" });
     }
 
@@ -96,14 +101,15 @@ export async function remove(req, res) {
   }
 
   try {
-    const [result] = await pool.query(
+    const result = await pool.query(
       `UPDATE tbl_project
-       SET status = 0, updated_at = NOW()
-       WHERE id_project = ? AND status = 1`,
+       SET status = 0,
+           updated_at = NOW()
+       WHERE id_project = $1 AND status = 1`,
       [idNum],
     );
 
-    if (result.affectedRows === 0) {
+    if (result.rowCount === 0) {
       return res.status(404).json({
         message: "Project tidak ditemukan atau sudah terhapus",
       });

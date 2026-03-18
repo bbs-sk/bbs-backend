@@ -2,12 +2,13 @@ import { pool } from "../config/db.js";
 
 export async function get(req, res) {
   try {
-    const [rows] = await pool.query(
+    const result = await pool.query(
       `SELECT *
        FROM tbl_stock
        ORDER BY id_stock DESC`,
     );
-    return res.json(rows);
+
+    return res.json(result.rows);
   } catch (err) {
     return res.status(500).json({
       message: "Gagal ambil data stock",
@@ -67,15 +68,16 @@ export async function add(req, res) {
       : String(datetime).trim();
 
   try {
-    const [result] = await pool.query(
+    const result = await pool.query(
       `INSERT INTO tbl_stock (id_barang, jumlah, status, harga, id_invoice, datetime)
-       VALUES (?, ?, ?, ?, ?, COALESCE(?, NOW()))`,
+       VALUES ($1, $2, $3, $4, $5, COALESCE($6, NOW()))
+       RETURNING id_stock`,
       [idBarangNum, jumlahNum, statusVal, hargaNum, idInvoiceNum, datetimeVal],
     );
 
     return res.status(201).json({
       message: "Stock berhasil ditambahkan",
-      id: result.insertId,
+      id: result.rows[0].id_stock,
     });
   } catch (err) {
     return res.status(500).json({
@@ -108,6 +110,7 @@ export async function update(req, res) {
   const statusVal = String(status || "")
     .trim()
     .toLowerCase();
+
   if (!allowedStatus.includes(statusVal)) {
     return res.status(400).json({
       message: `status harus salah satu: ${allowedStatus.join(", ")}`,
@@ -141,10 +144,15 @@ export async function update(req, res) {
       : String(datetime).trim();
 
   try {
-    const [result] = await pool.query(
+    const result = await pool.query(
       `UPDATE tbl_stock
-       SET id_barang = ?, jumlah = ?, status = ?, harga = ?, id_invoice = ?, datetime = COALESCE(?, datetime)
-       WHERE id_stock = ?`,
+       SET id_barang = $1,
+           jumlah = $2,
+           status = $3,
+           harga = $4,
+           id_invoice = $5,
+           datetime = COALESCE($6, datetime)
+       WHERE id_stock = $7`,
       [
         idBarangNum,
         jumlahNum,
@@ -156,7 +164,7 @@ export async function update(req, res) {
       ],
     );
 
-    if (result.affectedRows === 0) {
+    if (result.rowCount === 0) {
       return res.status(404).json({ message: "Stock tidak ditemukan" });
     }
 
@@ -178,12 +186,12 @@ export async function remove(req, res) {
   }
 
   try {
-    const [result] = await pool.query(
-      `DELETE FROM tbl_stock WHERE id_stock = ?`,
+    const result = await pool.query(
+      `DELETE FROM tbl_stock WHERE id_stock = $1`,
       [idStockNum],
     );
 
-    if (result.affectedRows === 0) {
+    if (result.rowCount === 0) {
       return res.status(404).json({ message: "Stock tidak ditemukan" });
     }
 

@@ -2,10 +2,13 @@ import { pool } from "../config/db.js";
 
 export async function get(req, res) {
   try {
-    const [rows] = await pool.query(
-      "SELECT * FROM tbl_invoice WHERE deleted_at IS NULL ORDER BY id_invoice DESC",
+    const result = await pool.query(
+      `SELECT * FROM tbl_invoice 
+       WHERE deleted_at IS NULL 
+       ORDER BY id_invoice DESC`,
     );
-    return res.json(rows);
+
+    return res.json(result.rows);
   } catch (err) {
     return res.status(500).json({
       message: "Gagal ambil data invoice",
@@ -37,15 +40,16 @@ export async function add(req, res) {
       : "dipesan";
 
   try {
-    const [result] = await pool.query(
+    const result = await pool.query(
       `INSERT INTO tbl_invoice (id_user, id_proyek, total_harga, status)
-       VALUES (?, ?, ?, ?)`,
+       VALUES ($1, $2, $3, $4)
+       RETURNING id_invoice`,
       [idUserNum, idProyekNum, totalHargaNum, statusVal],
     );
 
     return res.status(201).json({
       message: "Invoice berhasil ditambahkan",
-      id: result.insertId,
+      id: result.rows[0].id_invoice,
     });
   } catch (err) {
     return res.status(500).json({
@@ -89,6 +93,7 @@ export async function update(req, res) {
   const statusVal = String(status || "")
     .trim()
     .toLowerCase();
+
   if (!allowedStatus.includes(statusVal)) {
     return res.status(400).json({
       message: `status harus salah satu: ${allowedStatus.join(", ")}`,
@@ -99,10 +104,15 @@ export async function update(req, res) {
   const deliverAtVal = deliver_at ?? null;
 
   try {
-    const [result] = await pool.query(
+    const result = await pool.query(
       `UPDATE tbl_invoice
-       SET id_user = ?, id_proyek = ?, total_harga = ?, status = ?, aproved_at = ?, deliver_at = ?
-       WHERE id_invoice = ? AND deleted_at IS NULL`,
+       SET id_user = $1,
+           id_proyek = $2,
+           total_harga = $3,
+           status = $4,
+           aproved_at = $5,
+           deliver_at = $6
+       WHERE id_invoice = $7 AND deleted_at IS NULL`,
       [
         idUserNum,
         idProyekNum,
@@ -114,7 +124,7 @@ export async function update(req, res) {
       ],
     );
 
-    if (result.affectedRows === 0) {
+    if (result.rowCount === 0) {
       return res
         .status(404)
         .json({ message: "Invoice tidak ditemukan / sudah dihapus" });
@@ -138,18 +148,22 @@ export async function remove(req, res) {
   }
 
   try {
-    const [result] = await pool.query(
-      "UPDATE tbl_invoice SET deleted_at = NOW() WHERE id_invoice = ? AND deleted_at IS NULL",
+    const result = await pool.query(
+      `UPDATE tbl_invoice 
+       SET deleted_at = NOW() 
+       WHERE id_invoice = $1 AND deleted_at IS NULL`,
       [idInvoiceNum],
     );
 
-    if (result.affectedRows === 0) {
+    if (result.rowCount === 0) {
       return res.status(404).json({
         message: "Invoice tidak ditemukan atau sudah dihapus",
       });
     }
 
-    return res.json({ message: "Invoice berhasil dihapus (soft delete)" });
+    return res.json({
+      message: "Invoice berhasil dihapus (soft delete)",
+    });
   } catch (err) {
     return res.status(500).json({
       message: "Gagal soft delete invoice",

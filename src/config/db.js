@@ -1,24 +1,41 @@
-import mysql from "mysql2/promise";
+import dotenv from "dotenv";
+import pkg from "pg";
 
-const dbConfig = {
-  host: "localhost",
-  user: "root",
-  password: "root",
-  database: "db_bbs",
-  port: 3306,
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0,
-};
-
-export const pool = mysql.createPool(dbConfig);
+dotenv.config();
+const { Pool } = pkg;
+const connectionString = process.env.DATABASE_URL;
+export const pool = new Pool({
+  connectionString,
+  ssl: {
+    rejectUnauthorized: false,
+  },
+  max: 10,
+});
 
 export async function testConnection() {
-  const conn = await pool.getConnection();
+  let client;
   try {
-    await conn.query("SELECT 1");
-    console.log("✅ Database connected");
+    client = await pool.connect();
+    const res = await client.query("SELECT 1");
+    console.log("✅ Database connected:", res.rows);
+  } catch (error) {
+    console.error("❌ Connection error:", error.message);
   } finally {
-    conn.release();
+    if (client) client.release();
   }
+}
+
+export async function query(text, params) {
+  try {
+    const res = await pool.query(text, params);
+    return res;
+  } catch (error) {
+    console.error("❌ Query error:", error.message);
+    throw error;
+  }
+}
+
+export async function closePool() {
+  await pool.end();
+  console.log("🔌 Database pool closed");
 }
