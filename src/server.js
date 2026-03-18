@@ -1,11 +1,11 @@
 import app from "./app.js";
-import { testConnection } from "./config/db.js";
+import { pool } from "./config/db.js";
 
 const PORT = 3000;
 
 (async () => {
   try {
-    await testConnection();
+    await pool.query("SELECT 1");
     app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
   } catch (err) {
     console.error("❌ Server gagal start:", err.message);

@@ -20,10 +20,11 @@ app.use(express.json({ limit: "1mb" }));
 app.use(cors());
 
 app.get("/api/health", (req, res) => res.json({ status: "ok" }));
-app.use("/user", userRoutes);
-app.use("/barang", barangRoutes);
-app.use("/invoice", invoiceRoutes);
-app.use("/project", projectRoutes);
-app.use("/stock", stockRoutes);
+
+app.use("/api/user", userRoutes);
+app.use("/api/barang", barangRoutes);
+app.use("/api/invoice", invoiceRoutes);
+app.use("/api/project", projectRoutes);
+app.use("/api/stock", stockRoutes);
 
 export default app;
