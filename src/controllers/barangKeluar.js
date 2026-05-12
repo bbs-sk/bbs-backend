@@ -1,0 +1,127 @@
+import { pool } from "../config/db.js";
+
+// GET DATA BARANG KELUAR
+export async function get(req, res) {
+  try {
+    const result = await pool.query(
+      `SELECT 
+          bk.id_brg_keluar,
+          bk.id_barang,
+          b.nama_barang,
+          b.kode_barang,
+          bk.id_invoice,
+          bk.jumlah,
+          bk.harga_jual,
+          bk.datetime,
+          bk.status
+       FROM tbl_brg_keluar bk
+       JOIN tbl_barang b 
+            ON bk.id_barang = b.id_barang
+       WHERE bk.status = 1
+       ORDER BY bk.id_brg_keluar DESC`,
+    );
+
+    return res.json(result.rows);
+  } catch (err) {
+    return res.status(500).json({
+      message: "Gagal ambil data barang keluar",
+      detail: err.message,
+    });
+  }
+}
+
+// TAMBAH BARANG KELUAR
+export async function add(req, res) {
+  const { id_barang, id_invoice, jumlah, harga_jual } = req.body;
+
+  try {
+    const result = await pool.query(
+      `INSERT INTO tbl_brg_keluar 
+        (id_barang, id_invoice, jumlah, harga_jual) 
+       VALUES ($1, $2, $3, $4)
+       RETURNING id_brg_keluar`,
+      [id_barang, id_invoice, jumlah, harga_jual],
+    );
+
+    return res.status(201).json({
+      message: "Barang keluar berhasil ditambahkan",
+      id: result.rows[0].id_brg_keluar,
+    });
+  } catch (err) {
+    return res.status(500).json({
+      message: "Gagal tambah barang keluar",
+      detail: err.message,
+    });
+  }
+}
+
+// UPDATE BARANG KELUAR
+export async function update(req, res) {
+  const { id_brg_keluar, id_barang, id_invoice, jumlah, harga_jual } = req.body;
+
+  try {
+    const result = await pool.query(
+      `UPDATE tbl_brg_keluar
+       SET 
+          id_barang = $1,
+          id_invoice = $2,
+          jumlah = $3,
+          harga_jual = $4
+       WHERE id_brg_keluar = $5`,
+      [id_barang, id_invoice, jumlah, harga_jual, id_brg_keluar],
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({
+        message: "Data barang keluar tidak ditemukan",
+      });
+    }
+
+    return res.json({
+      message: "Barang keluar berhasil diupdate",
+    });
+  } catch (err) {
+    return res.status(500).json({
+      message: "Gagal update barang keluar",
+      detail: err.message,
+    });
+  }
+}
+
+// HAPUS / NONAKTIFKAN BARANG KELUAR
+export async function remove(req, res) {
+  const { id_brg_keluar } = req.body;
+
+  const idNum = Number(id_brg_keluar);
+
+  if (!Number.isInteger(idNum) || idNum <= 0) {
+    return res.status(400).json({
+      message: "Parameter id tidak valid",
+    });
+  }
+
+  try {
+    const result = await pool.query(
+      `UPDATE tbl_brg_keluar
+       SET status = 0
+       WHERE id_brg_keluar = $1
+       AND status = 1`,
+      [idNum],
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({
+        message: "Data barang keluar tidak ditemukan atau sudah dinonaktifkan",
+      });
+    }
+
+    return res.json({
+      message: "Barang keluar berhasil dinonaktifkan",
+    });
+  } catch (err) {
+    return res.status(500).json({
+      message: "Gagal menonaktifkan barang keluar",
+      detail: err.message,
+    });
+  }
+}

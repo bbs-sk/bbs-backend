@@ -9,6 +9,7 @@ import barangRoutes from "./routes/barang.js";
 import invoiceRoutes from "./routes/invoice.js";
 import projectRoutes from "./routes/project.js";
 import stockRoutes from "./routes/stock.js";
+import orderRoutes from "./routes/order.js";
 
 const app = express();
 
@@ -26,5 +27,6 @@ app.use("/api/barang", barangRoutes);
 app.use("/api/invoice", invoiceRoutes);
 app.use("/api/project", projectRoutes);
 app.use("/api/stock", stockRoutes);
+app.use("/api/order", orderRoutes);
 
 export default app;
