@@ -19,14 +19,14 @@ export async function get(req, res) {
 }
 
 export async function add(req, res) {
-  const { nama_barang, satuan, kode_barang } = req.body;
+  const { nama_barang, satuan, kode_barang, harga_jual } = req.body;
 
   try {
     const result = await pool.query(
-      `INSERT INTO tbl_barang (nama_barang, satuan, kode_barang) 
-       VALUES ($1, $2, $3)
+      `INSERT INTO tbl_barang (nama_barang, satuan, kode_barang, harga_jual) 
+       VALUES ($1, $2, $3, $4)
        RETURNING id_barang`,
-      [nama_barang, satuan, kode_barang],
+      [nama_barang, satuan, kode_barang, harga_jual],
     );
 
     return res.status(201).json({
@@ -47,7 +47,7 @@ export async function update(req, res) {
   try {
     const result = await pool.query(
       `UPDATE tbl_barang 
-       SET nama_barang = $1, satuan = $2, harga = $3, kode_barang = $4 
+       SET nama_barang = $1, satuan = $2, harga_jual = $3, kode_barang = $4 
        WHERE id_barang = $5`,
       [nama_barang, satuan, harga_jual, kode_barang, id_barang],
     );

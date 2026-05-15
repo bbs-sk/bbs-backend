@@ -16,14 +16,14 @@ export async function get(req, res) {
 }
 
 export async function add(req, res) {
-  const { name, role, username, password, email } = req.body;
+  const { name, role, username, password } = req.body;
 
   try {
     const result = await pool.query(
-      `INSERT INTO tbl_user (name, role, username, password, email)
-       VALUES ($1, $2, $3, $4, $5)
+      `INSERT INTO tbl_user (name, role, username, password)
+       VALUES ($1, $2, $3, $4)
        RETURNING id_user`,
-      [name, role, username, password, email],
+      [name, role, username, password],
     );
 
     return res.status(201).json({
@@ -31,6 +31,7 @@ export async function add(req, res) {
       id: result.rows[0].id_user,
     });
   } catch (err) {
+    console.log(err);
     return res.status(500).json({
       message: "Gagal tambah data",
       detail: err.message,
@@ -39,7 +40,7 @@ export async function add(req, res) {
 }
 
 export async function update(req, res) {
-  const { id_user, name, role, username, password, email } = req.body;
+  const { id_user, name, role, username, password } = req.body;
 
   if (!id_user) {
     return res.status(400).json({
@@ -53,10 +54,9 @@ export async function update(req, res) {
        SET name = $1,
            role = $2,
            username = $3,
-           password = $4,
-           email = $5
-       WHERE id_user = $6`,
-      [name, role, username, password, email, id_user],
+           password = $4
+       WHERE id_user = $5`,
+      [name, role, username, password, id_user],
     );
 
     return res.json({
@@ -64,6 +64,7 @@ export async function update(req, res) {
       affectedRows: result.rowCount,
     });
   } catch (err) {
+    console.log(err);
     return res.status(500).json({
       message: "Gagal update data",
       detail: err.message,

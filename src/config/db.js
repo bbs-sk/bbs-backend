@@ -12,6 +12,10 @@ export const pool = new Pool({
   max: 10,
 });
 
+pool.on("connect", async (client) => {
+  await client.query("SET TIME ZONE 'Asia/Jakarta'");
+});
+
 export async function testConnection() {
   let client;
   try {
