@@ -30,6 +30,37 @@ export async function get(req, res) {
   }
 }
 
+export async function getIdInvoice(req, res) {
+  try {
+    const { id_invoice } = req.body;
+    const result = await pool.query(
+      `SELECT 
+          bk.id_brg_keluar,
+          bk.id_barang,
+          b.nama_barang,
+          b.kode_barang,
+          bk.id_invoice,
+          bk.jumlah,
+          bk.harga_jual,
+          bk.datetime,
+          bk.status
+       FROM tbl_brg_keluar bk
+       JOIN tbl_barang b 
+            ON bk.id_barang = b.id_barang
+       WHERE bk.status = 1 and bk.id_invoice = $1
+       ORDER BY bk.id_brg_keluar DESC`,
+      [id_invoice],
+    );
+
+    return res.json(result.rows);
+  } catch (err) {
+    return res.status(500).json({
+      message: "Gagal ambil data barang keluar",
+      detail: err.message,
+    });
+  }
+}
+
 // TAMBAH BARANG KELUAR
 export async function add(req, res) {
   const { id_barang, id_invoice, jumlah, harga_jual } = req.body;

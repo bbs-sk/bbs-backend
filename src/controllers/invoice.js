@@ -2,11 +2,34 @@ import { pool } from "../config/db.js";
 
 export async function get(req, res) {
   try {
-    const result = await pool.query(
-      `SELECT * FROM tbl_invoice 
-       WHERE deleted_at IS NULL 
-       ORDER BY id_invoice DESC`,
-    );
+    const result = await pool.query(`
+      SELECT
+        i.id_invoice,
+        i.id_user,
+        u.name AS name,
+
+        i.id_project,
+        p.nama_project,
+
+        i.total_harga,
+        i.status,
+        i.pembayaran,
+        i.created_at,
+        i.aproved_at,
+        i.deliver_at
+
+      FROM tbl_invoice i
+
+      LEFT JOIN tbl_user u
+        ON i.id_user = u.id_user
+
+      LEFT JOIN tbl_project p
+        ON i.id_project = p.id_project
+
+      WHERE i.deleted_at IS NULL
+
+      ORDER BY i.id_invoice DESC
+    `);
 
     return res.json(result.rows);
   } catch (err) {
@@ -167,6 +190,30 @@ export async function remove(req, res) {
   } catch (err) {
     return res.status(500).json({
       message: "Gagal soft delete invoice",
+      detail: err.message,
+    });
+  }
+}
+
+export async function status(req, res) {
+  try {
+    const { id_invoice, status } = req.body;
+
+    await pool.query(
+      `
+      UPDATE tbl_invoice
+      SET status = $1
+      WHERE id_invoice = $2
+    `,
+      [status, id_invoice],
+    );
+
+    return res.json({
+      message: "Status berhasil diupdate",
+    });
+  } catch (err) {
+    return res.status(500).json({
+      message: "Gagal update status",
       detail: err.message,
     });
   }
