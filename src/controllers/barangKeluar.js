@@ -156,3 +156,23 @@ export async function remove(req, res) {
     });
   }
 }
+
+export async function getMonthly(req, res) {
+  try {
+    const result = await pool.query(`
+      SELECT COALESCE(SUM(CAST(jumlah AS INTEGER)), 0) AS total
+      FROM tbl_brg_keluar
+      WHERE 
+        DATE_PART('month', datetime::date) = DATE_PART('month', CURRENT_DATE)
+        AND
+        DATE_PART('year', datetime::date) = DATE_PART('year', CURRENT_DATE)
+    `);
+
+    return res.json(result.rows[0]);
+  } catch (err) {
+    return res.status(500).json({
+      message: "Gagal ambil barang keluar",
+      detail: err.message,
+    });
+  }
+}

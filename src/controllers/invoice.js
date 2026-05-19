@@ -40,6 +40,48 @@ export async function get(req, res) {
   }
 }
 
+export async function recent(req, res) {
+  try {
+    const result = await pool.query(`
+      SELECT
+        i.id_invoice,
+        i.id_user,
+        u.name AS name,
+
+        i.id_project,
+        p.nama_project,
+
+        i.total_harga,
+        i.status,
+        i.pembayaran,
+        i.created_at,
+        i.aproved_at,
+        i.deliver_at
+
+      FROM tbl_invoice i
+
+      LEFT JOIN tbl_user u
+        ON i.id_user = u.id_user
+
+      LEFT JOIN tbl_project p
+        ON i.id_project = p.id_project
+
+      WHERE i.deleted_at IS NULL
+
+      ORDER BY i.id_invoice DESC
+
+      LIMIT 10
+    `);
+
+    return res.json(result.rows);
+  } catch (err) {
+    return res.status(500).json({
+      message: "Gagal ambil data invoice",
+      detail: err.message,
+    });
+  }
+}
+
 export async function add(req, res) {
   const { id_user, id_proyek, total_harga, status } = req.body;
 
@@ -214,6 +256,44 @@ export async function status(req, res) {
   } catch (err) {
     return res.status(500).json({
       message: "Gagal update status",
+      detail: err.message,
+    });
+  }
+}
+
+export async function monthly(req, res) {
+  try {
+    const result = await pool.query(`
+      SELECT 
+        TO_CHAR(DATE_TRUNC('month', created_at), 'Mon YYYY') AS bulan,
+        SUM(total_harga) AS total
+      FROM tbl_invoice
+      WHERE created_at >= DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '4 months'
+      GROUP BY DATE_TRUNC('month', created_at)
+      ORDER BY DATE_TRUNC('month', created_at)
+    `);
+
+    return res.json(result.rows);
+  } catch (err) {
+    return res.status(500).json({
+      message: "Gagal mengambil data penjualan",
+      detail: err.message,
+    });
+  }
+}
+
+export async function wait(req, res) {
+  try {
+    const result = await pool.query(`
+      SELECT COUNT(*) AS total
+      FROM tbl_invoice
+      WHERE status = 'menunggu'
+    `);
+
+    return res.json(result.rows[0]);
+  } catch (err) {
+    return res.status(500).json({
+      message: "Gagal ambil data pesanan",
       detail: err.message,
     });
   }

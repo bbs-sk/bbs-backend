@@ -99,3 +99,20 @@ export async function remove(req, res) {
     });
   }
 }
+
+export async function getTotal(req, res) {
+  try {
+    const result = await pool.query(`
+      SELECT COALESCE(SUM(jumlah), 0) AS total
+      FROM tbl_barang
+      WHERE status = '1'
+    `);
+
+    return res.json(result.rows[0]);
+  } catch (err) {
+    return res.status(500).json({
+      message: "Gagal ambil total barang",
+      detail: err.message,
+    });
+  }
+}
