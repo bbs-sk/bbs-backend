@@ -97,3 +97,51 @@ export async function remove(req, res) {
     });
   }
 }
+
+export async function getLapangan(req, res) {
+  try {
+    const result = await pool.query(
+      `SELECT id_user, name
+       FROM tbl_user
+       WHERE LOWER(role) = LOWER($1)
+       ORDER BY id_user DESC`,
+      ["lapangan"],
+    );
+
+    return res.json(result.rows);
+  } catch (err) {
+    return res.status(500).json({
+      message: "Gagal ambil data user lapangan",
+      detail: err.message,
+    });
+  }
+}
+
+export async function search(req, res) {
+  const { keyword } = req.body;
+
+  try {
+    const result = await pool.query(
+      `
+      SELECT *
+      FROM tbl_user
+      WHERE
+        name ILIKE $1
+        OR username ILIKE $1
+        OR role ILIKE $1
+      ORDER BY id_user DESC
+      `,
+      [`%${keyword}%`],
+    );
+
+    return res.json({
+      message: "Berhasil mencari data",
+      val: result.rows,
+    });
+  } catch (err) {
+    return res.status(500).json({
+      message: "Gagal mencari data",
+      detail: err.message,
+    });
+  }
+}

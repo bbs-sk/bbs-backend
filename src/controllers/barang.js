@@ -99,3 +99,35 @@ export async function remove(req, res) {
     });
   }
 }
+
+export async function search(req, res) {
+  const { keyword } = req.body;
+
+  try {
+    const result = await pool.query(
+      `
+      SELECT *
+      FROM tbl_barang
+      WHERE
+        status = '1'
+        AND (
+          nama_barang ILIKE $1
+          OR kode_barang ILIKE $1
+          OR satuan ILIKE $1
+        )
+      ORDER BY id_barang DESC
+      `,
+      [`%${keyword}%`],
+    );
+
+    return res.json({
+      message: "Berhasil mencari data",
+      val: result.rows,
+    });
+  } catch (err) {
+    return res.status(500).json({
+      message: "Gagal mencari data",
+      detail: err.message,
+    });
+  }
+}
