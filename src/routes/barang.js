@@ -1,5 +1,12 @@
 import express from "express";
-import { get, add, update, remove, getTotal } from "../controllers/barang.js";
+import {
+  get,
+  add,
+  update,
+  remove,
+  getTotal,
+  search,
+} from "../controllers/barang.js";
 
 const router = express.Router();
 
@@ -8,5 +15,6 @@ router.post("/add", add);
 router.post("/update", update);
 router.post("/delete", remove);
 router.get("/total", getTotal);
+router.post("/search", search);
 
 export default router;

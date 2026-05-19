@@ -2,12 +2,23 @@ import { pool } from "../config/db.js";
 
 export async function get(req, res) {
   try {
-    const result = await pool.query(
-      `SELECT *
-       FROM tbl_project
-       WHERE status = 1
-       ORDER BY id_project DESC`,
-    );
+    const result = await pool.query(`
+      SELECT
+        p.*,
+        u1.name AS user_1_nama,
+        u2.name AS user_2_nama
+      FROM tbl_project p
+
+      LEFT JOIN tbl_user u1
+      ON u1.id_user = p.id_user1
+
+      LEFT JOIN tbl_user u2
+      ON u2.id_user = p.id_user2
+
+      WHERE p.status = 1
+
+      ORDER BY p.id_project DESC
+    `);
 
     return res.json(result.rows);
   } catch (err) {
@@ -19,21 +30,32 @@ export async function get(req, res) {
 }
 
 export async function add(req, res) {
-  const { nama_project, alamat } = req.body;
+  const { nama_project, alamat, id_user1, id_user2 } = req.body;
 
   const namaVal = typeof nama_project === "string" ? nama_project.trim() : "";
+
   if (!namaVal) {
-    return res.status(400).json({ message: "nama_project wajib diisi" });
+    return res.status(400).json({
+      message: "nama_project wajib diisi",
+    });
   }
 
   const alamatVal = typeof alamat === "string" ? alamat.trim() : "";
 
   try {
     const result = await pool.query(
-      `INSERT INTO tbl_project (nama_project, alamat, created_at, updated_at)
-       VALUES ($1, $2, NOW(), NOW())
+      `INSERT INTO tbl_project
+       (
+         nama_project,
+         alamat,
+         id_user1,
+         id_user2,
+         created_at,
+         updated_at
+       )
+       VALUES ($1, $2, $3, $4, NOW(), NOW())
        RETURNING id_project`,
-      [namaVal, alamatVal],
+      [namaVal, alamatVal, id_user1 || null, id_user2 || null],
     );
 
     return res.status(201).json({
@@ -49,23 +71,33 @@ export async function add(req, res) {
 }
 
 export async function update(req, res) {
-  const { id_project, nama_project, alamat, status } = req.body;
+  const { id_project, nama_project, alamat, id_user1, id_user2, status } =
+    req.body;
 
   const idNum = Number(id_project);
+
   if (!Number.isInteger(idNum) || idNum <= 0) {
-    return res.status(400).json({ message: "id_project harus integer > 0" });
+    return res.status(400).json({
+      message: "id_project harus integer > 0",
+    });
   }
 
   const namaVal = typeof nama_project === "string" ? nama_project.trim() : "";
+
   if (!namaVal) {
-    return res.status(400).json({ message: "nama_project wajib diisi" });
+    return res.status(400).json({
+      message: "nama_project wajib diisi",
+    });
   }
 
   const alamatVal = typeof alamat === "string" ? alamat.trim() : "";
 
   let statusNum = status === undefined || status === null ? 1 : Number(status);
+
   if (![0, 1].includes(statusNum)) {
-    return res.status(400).json({ message: "status harus 0 atau 1" });
+    return res.status(400).json({
+      message: "status harus 0 atau 1",
+    });
   }
 
   try {
@@ -73,17 +105,30 @@ export async function update(req, res) {
       `UPDATE tbl_project
        SET nama_project = $1,
            alamat = $2,
-           status = $3,
+           id_user1 = $3,
+           id_user2 = $4,
+           status = $5,
            updated_at = NOW()
-       WHERE id_project = $4`,
-      [namaVal, alamatVal, statusNum, idNum],
+       WHERE id_project = $6`,
+      [
+        namaVal,
+        alamatVal,
+        id_user1 || null,
+        id_user2 || null,
+        statusNum,
+        idNum,
+      ],
     );
 
     if (result.rowCount === 0) {
-      return res.status(404).json({ message: "Project tidak ditemukan" });
+      return res.status(404).json({
+        message: "Project tidak ditemukan",
+      });
     }
 
-    return res.json({ message: "Project berhasil diupdate" });
+    return res.json({
+      message: "Project berhasil diupdate",
+    });
   } catch (err) {
     return res.status(500).json({
       message: "Gagal update project",
