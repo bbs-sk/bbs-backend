@@ -168,3 +168,47 @@ export async function remove(req, res) {
     });
   }
 }
+
+export async function search(req, res) {
+  const { keyword } = req.body;
+
+  try {
+    const result = await pool.query(
+      `
+      SELECT
+        p.*,
+        u1.name AS user_1_nama,
+        u2.name AS user_2_nama
+      FROM tbl_project p
+
+      LEFT JOIN tbl_user u1
+      ON u1.id_user = p.id_user1
+
+      LEFT JOIN tbl_user u2
+      ON u2.id_user = p.id_user2
+
+      WHERE
+        p.status = 1
+        AND (
+          p.nama_project ILIKE $1
+          OR p.alamat ILIKE $1
+          OR u1.name ILIKE $1
+          OR u2.name ILIKE $1
+        )
+
+      ORDER BY p.id_project DESC
+      `,
+      [`%${keyword}%`],
+    );
+
+    return res.json({
+      message: "Berhasil mencari data",
+      val: result.rows,
+    });
+  } catch (err) {
+    return res.status(500).json({
+      message: "Gagal mencari data project",
+      detail: err.message,
+    });
+  }
+}
