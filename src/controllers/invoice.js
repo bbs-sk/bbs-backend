@@ -83,124 +83,133 @@ export async function recent(req, res) {
 }
 
 export async function add(req, res) {
-  const { id_user, id_proyek, total_harga, status } = req.body;
-
-  const idUserNum = Number(id_user);
-  const idProyekNum = Number(id_proyek);
-  const totalHargaNum = Number(total_harga);
-
-  if (!Number.isInteger(idUserNum) || idUserNum <= 0) {
-    return res.status(400).json({ message: "id_user harus integer > 0" });
-  }
-  if (!Number.isInteger(idProyekNum) || idProyekNum <= 0) {
-    return res.status(400).json({ message: "id_proyek harus integer > 0" });
-  }
-  if (!Number.isFinite(totalHargaNum) || totalHargaNum < 0) {
-    return res.status(400).json({ message: "total_harga harus angka >= 0" });
-  }
-
-  const statusVal =
-    typeof status === "string" && status.trim() !== ""
-      ? status.trim()
-      : "dipesan";
+  const client = await pool.connect();
 
   try {
-    const result = await pool.query(
-      `INSERT INTO tbl_invoice (id_user, id_proyek, total_harga, status)
-       VALUES ($1, $2, $3, $4)
-       RETURNING id_invoice`,
-      [idUserNum, idProyekNum, totalHargaNum, statusVal],
+    await client.query("BEGIN");
+
+    const { id_user, id_project, total_harga, status, pembayaran, barang } =
+      req.body;
+
+    // VALIDASI
+    if (!Number.isInteger(Number(id_project)) || Number(id_project) <= 0) {
+      return res.status(400).json({
+        message: "id_project harus integer > 0",
+      });
+    }
+
+    // INSERT INVOICE
+    const invoiceResult = await client.query(
+      `INSERT INTO tbl_invoice
+      (
+        id_user,
+        id_project,
+        total_harga,
+        status,
+        pembayaran
+      )
+      VALUES ($1, $2, $3, $4, $5)
+      RETURNING id_invoice`,
+      [id_user, id_project, total_harga, status, pembayaran],
     );
+
+    const id_invoice = invoiceResult.rows[0].id_invoice;
+
+    // INSERT BARANG KELUAR
+    for (const item of barang) {
+      await client.query(
+        `INSERT INTO tbl_brg_keluar
+        (
+          id_barang,
+          id_invoice,
+          jumlah,
+          harga_jual
+        )
+        VALUES ($1, $2, $3, $4)`,
+        [item.id_barang, id_invoice, item.jumlah, item.harga_jual],
+      );
+    }
+
+    await client.query("COMMIT");
 
     return res.status(201).json({
       message: "Invoice berhasil ditambahkan",
-      id: result.rows[0].id_invoice,
+      id_invoice,
     });
   } catch (err) {
+    await client.query("ROLLBACK");
+
     return res.status(500).json({
       message: "Gagal tambah invoice",
       detail: err.message,
     });
+  } finally {
+    client.release();
   }
 }
 
 export async function update(req, res) {
-  const {
-    id_invoice,
-    id_user,
-    id_proyek,
-    total_harga,
-    status,
-    aproved_at,
-    deliver_at,
-  } = req.body;
-
-  const idInvoiceNum = Number(id_invoice);
-  if (!Number.isInteger(idInvoiceNum) || idInvoiceNum <= 0) {
-    return res.status(400).json({ message: "id_invoice harus integer > 0" });
-  }
-
-  const idUserNum = Number(id_user);
-  const idProyekNum = Number(id_proyek);
-  const totalHargaNum = Number(total_harga);
-
-  if (!Number.isInteger(idUserNum) || idUserNum <= 0) {
-    return res.status(400).json({ message: "id_user harus integer > 0" });
-  }
-  if (!Number.isInteger(idProyekNum) || idProyekNum <= 0) {
-    return res.status(400).json({ message: "id_proyek harus integer > 0" });
-  }
-  if (!Number.isFinite(totalHargaNum) || totalHargaNum < 0) {
-    return res.status(400).json({ message: "total_harga harus angka >= 0" });
-  }
-
-  const allowedStatus = ["dipesan", "dikirim", "selesai"];
-  const statusVal = String(status || "")
-    .trim()
-    .toLowerCase();
-
-  if (!allowedStatus.includes(statusVal)) {
-    return res.status(400).json({
-      message: `status harus salah satu: ${allowedStatus.join(", ")}`,
-    });
-  }
-
-  const aprovedAtVal = aproved_at ?? null;
-  const deliverAtVal = deliver_at ?? null;
+  const client = await pool.connect();
 
   try {
-    const result = await pool.query(
-      `UPDATE tbl_invoice
-       SET id_user = $1,
-           id_proyek = $2,
-           total_harga = $3,
-           status = $4,
-           aproved_at = $5,
-           deliver_at = $6
-       WHERE id_invoice = $7 AND deleted_at IS NULL`,
-      [
-        idUserNum,
-        idProyekNum,
-        totalHargaNum,
-        statusVal,
-        aprovedAtVal,
-        deliverAtVal,
-        idInvoiceNum,
-      ],
+    await client.query("BEGIN");
+
+    const { id_invoice, id_project, total_harga, pembayaran, barang } =
+      req.body;
+
+    // UPDATE INVOICE
+    await client.query(
+      `
+      UPDATE tbl_invoice
+      SET
+        id_project = $1,
+        total_harga = $2,
+        pembayaran = $3
+      WHERE id_invoice = $4
+      `,
+      [id_project, total_harga, pembayaran, id_invoice],
     );
 
-    if (result.rowCount === 0) {
-      return res
-        .status(404)
-        .json({ message: "Invoice tidak ditemukan / sudah dihapus" });
+    // HAPUS DETAIL LAMA
+    await client.query(
+      `
+      DELETE FROM tbl_brg_keluar
+      WHERE id_invoice = $1
+      `,
+      [id_invoice],
+    );
+
+    // INSERT DETAIL BARU
+    for (const item of barang) {
+      await client.query(
+        `
+        INSERT INTO tbl_brg_keluar
+        (
+          id_barang,
+          id_invoice,
+          jumlah,
+          harga_jual
+        )
+        VALUES ($1, $2, $3, $4)
+        `,
+        [item.id_barang, id_invoice, item.jumlah, item.harga_jual],
+      );
     }
 
-    return res.json({ message: "Invoice berhasil diupdate" });
+    await client.query("COMMIT");
+
+    return res.status(200).json({
+      message: "Invoice berhasil diupdate",
+    });
   } catch (err) {
+    await client.query("ROLLBACK");
+
     return res.status(500).json({
       message: "Gagal update invoice",
       detail: err.message,
     });
+  } finally {
+    client.release();
   }
 }
 
