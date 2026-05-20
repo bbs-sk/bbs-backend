@@ -126,7 +126,7 @@ export async function search(req, res) {
     });
   } catch (err) {
     return res.status(500).json({
-      message: "Gagal mencari data",
+      message: "Gagal Mencari Data",
       detail: err.message,
     });
   }
