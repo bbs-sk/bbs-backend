@@ -1,4 +1,9 @@
 import { pool } from "../config/db.js";
+import jwt from "jsonwebtoken";
+import bcrypt from "bcrypt";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 export async function get(req, res) {
   try {
@@ -19,11 +24,13 @@ export async function add(req, res) {
   const { name, role, username, password } = req.body;
 
   try {
+    const hashedPassword = await bcrypt.hash(password, 10);
+
     const result = await pool.query(
       `INSERT INTO tbl_user (name, role, username, password)
        VALUES ($1, $2, $3, $4)
        RETURNING id_user`,
-      [name, role, username, password],
+      [name, role, username, hashedPassword],
     );
 
     return res.status(201).json({
@@ -32,6 +39,7 @@ export async function add(req, res) {
     });
   } catch (err) {
     console.log(err);
+
     return res.status(500).json({
       message: "Gagal tambah data",
       detail: err.message,
@@ -48,6 +56,8 @@ export async function update(req, res) {
     });
   }
 
+  const hashedPassword = await bcrypt.hash(password, 10);
+
   try {
     const result = await pool.query(
       `UPDATE tbl_user
@@ -56,7 +66,7 @@ export async function update(req, res) {
            username = $3,
            password = $4
        WHERE id_user = $5`,
-      [name, role, username, password, id_user],
+      [name, role, username, hashedPassword, id_user],
     );
 
     return res.json({
@@ -93,6 +103,66 @@ export async function remove(req, res) {
   } catch (err) {
     return res.status(500).json({
       message: "Gagal hapus data",
+      detail: err.message,
+    });
+  }
+}
+
+export async function login(req, res) {
+  const { username, password } = req.body;
+
+  try {
+    const result = await pool.query(
+      `SELECT *
+       FROM tbl_user
+       WHERE username = $1`,
+      [username],
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(401).json({
+        message: "Username tidak ditemukan",
+      });
+    }
+
+    const user = result.rows[0];
+
+    const isMatch = await bcrypt.compare(password, user.password);
+
+    if (!isMatch) {
+      return res.status(401).json({
+        message: "Password salah",
+      });
+    }
+
+    const token = jwt.sign(
+      {
+        id_user: user.id_user,
+        name: user.name,
+        username: user.username,
+        role: user.role,
+      },
+      process.env.JWT_KEY,
+      {
+        expiresIn: "1d",
+      },
+    );
+
+    return res.json({
+      message: "Login berhasil",
+      token,
+      user: {
+        id_user: user.id_user,
+        name: user.name,
+        username: user.username,
+        role: user.role,
+      },
+    });
+  } catch (err) {
+    console.log(err);
+
+    return res.status(500).json({
+      message: "Login gagal",
       detail: err.message,
     });
   }
