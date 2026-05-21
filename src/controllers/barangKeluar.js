@@ -177,3 +177,64 @@ export async function getMonthly(req, res) {
     });
   }
 }
+
+export async function getLaporanPenjualan(req, res) {
+  try {
+    const result = await pool.query(`
+      SELECT
+        bk.id_invoice,
+
+        p.nama_project,
+
+        TO_CHAR(
+          MIN(bk.datetime AT TIME ZONE 'Asia/Jakarta'),
+          'YYYY-MM-DD'
+        ) AS date,
+
+        SUM(
+          CAST(bk.jumlah AS INTEGER)
+        ) AS total_items,
+
+        COUNT(DISTINCT bk.id_barang) AS total_produk,
+
+        SUM(
+          CAST(bk.jumlah AS NUMERIC)
+          *
+          CAST(bk.harga_jual AS NUMERIC)
+        ) AS total_price,
+
+        SUM(
+          CAST(bk.profit AS NUMERIC)
+        ) AS total_profit,
+
+        i.pembayaran AS status_pembayaran
+
+      FROM tbl_brg_keluar bk
+
+      JOIN tbl_invoice i
+        ON bk.id_invoice = i.id_invoice
+
+      JOIN tbl_project p
+        ON i.id_project = p.id_project
+
+      WHERE
+        bk.status = 1
+        AND LOWER(i.pembayaran) = 'lunas'
+
+      GROUP BY
+        bk.id_invoice,
+        p.nama_project,
+        i.pembayaran
+
+      ORDER BY
+        MIN(bk.datetime) DESC
+    `);
+
+    return res.json(result.rows);
+  } catch (err) {
+    return res.status(500).json({
+      message: "Gagal mengambil laporan penjualan",
+      detail: err.message,
+    });
+  }
+}
