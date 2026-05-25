@@ -238,3 +238,46 @@ export async function getLaporanPenjualan(req, res) {
     });
   }
 }
+
+// SEARCH BARANG KELUAR
+export async function search(req, res) {
+  const { keyword } = req.body;
+
+  try {
+    const result = await pool.query(
+      `
+      SELECT 
+          bk.id_brg_keluar,
+          bk.id_barang,
+          b.nama_barang,
+          b.kode_barang,
+          bk.id_invoice,
+          bk.jumlah,
+          bk.harga_jual,
+          bk.datetime,
+          bk.status
+       FROM tbl_brg_keluar bk
+
+       JOIN tbl_barang b 
+            ON bk.id_barang = b.id_barang
+
+       WHERE 
+            bk.status = 1
+            AND b.nama_barang ILIKE $1
+
+       ORDER BY bk.id_brg_keluar DESC
+      `,
+      [`%${keyword}%`],
+    );
+
+    return res.json({
+      message: "Berhasil mencari data barang keluar",
+      val: result.rows,
+    });
+  } catch (err) {
+    return res.status(500).json({
+      message: "Gagal mencari data barang keluar",
+      detail: err.message,
+    });
+  }
+}

@@ -7,6 +7,7 @@ import {
   remove,
   getMonthly,
   getLaporanPenjualan,
+  search,
 } from "../controllers/barangKeluar.js";
 import { monthly } from "../controllers/invoice.js";
 
@@ -17,6 +18,7 @@ router.post("/invoice", getIdInvoice);
 router.post("/add", add);
 router.post("/update", update);
 router.post("/delete", remove);
+router.post("/search", search);
 router.get("/monthly", getMonthly);
 router.get("/laporan_penjualan", getLaporanPenjualan);
 

@@ -245,3 +245,48 @@ export async function getMonthly(req, res) {
     });
   }
 }
+
+// SEARCH DATA BARANG MASUK
+export async function search(req, res) {
+  const { keyword } = req.body;
+
+  try {
+    const result = await pool.query(
+      `
+      SELECT 
+          bm.id_brg_masuk,
+          bm.id_barang,
+          b.nama_barang,
+          b.kode_barang,
+          bm.jumlah,
+          bm.harga_beli,
+          bm.datetime,
+          bm.status
+
+      FROM tbl_brg_masuk bm
+
+      JOIN tbl_barang b
+           ON bm.id_barang = b.id_barang
+
+      WHERE
+          bm.status = 1
+          AND (
+            b.nama_barang ILIKE $1
+          )
+
+      ORDER BY bm.id_brg_masuk DESC
+      `,
+      [`%${keyword}%`],
+    );
+
+    return res.json({
+      message: "Berhasil mencari data barang masuk",
+      val: result.rows,
+    });
+  } catch (err) {
+    return res.status(500).json({
+      message: "Gagal mencari data barang masuk",
+      detail: err.message,
+    });
+  }
+}
