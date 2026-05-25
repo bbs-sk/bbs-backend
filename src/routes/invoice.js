@@ -1,6 +1,7 @@
 import express from "express";
 import {
   get,
+  getRole,
   add,
   update,
   remove,
@@ -13,6 +14,7 @@ import {
 const router = express.Router();
 
 router.post("/", get);
+router.post("/role", getRole);
 router.post("/add", add);
 router.post("/update", update);
 router.post("/delete", remove);

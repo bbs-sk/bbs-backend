@@ -14,6 +14,7 @@ export async function get(req, res) {
         i.total_harga,
         i.status,
         i.pembayaran,
+        i.detail,
         i.created_at,
         i.aproved_at,
         i.deliver_at
@@ -40,6 +41,64 @@ export async function get(req, res) {
   }
 }
 
+export async function getRole(req, res) {
+  try {
+    const { role, id_user } = req.body;
+
+    let query = `
+      SELECT
+        i.id_invoice,
+        i.id_user,
+        u.name AS name,
+
+        i.id_project,
+        p.nama_project,
+
+        i.total_harga,
+        i.status,
+        i.pembayaran,
+        i.detail,
+        i.created_at,
+        i.aproved_at,
+        i.deliver_at
+
+      FROM tbl_invoice i
+
+      LEFT JOIN tbl_user u
+        ON i.id_user = u.id_user
+
+      LEFT JOIN tbl_project p
+        ON i.id_project = p.id_project
+
+      WHERE i.deleted_at IS NULL
+    `;
+
+    const values = [];
+
+    if (role === "Admin Kantor") {
+      // tidak ada filter tambahan
+    } else if (role === "Lapangan") {
+      query += ` AND i.id_user = $1`;
+      values.push(id_user);
+    } else if (role === "Gudang") {
+      query += `
+        AND i.status NOT IN ('pending', 'rejected')
+      `;
+    }
+
+    query += ` ORDER BY i.id_invoice DESC`;
+
+    const result = await pool.query(query, values);
+
+    return res.json(result.rows);
+  } catch (err) {
+    return res.status(500).json({
+      message: "Gagal ambil data invoice",
+      detail: err.message,
+    });
+  }
+}
+
 export async function recent(req, res) {
   try {
     const result = await pool.query(`
@@ -54,6 +113,7 @@ export async function recent(req, res) {
         i.total_harga,
         i.status,
         i.pembayaran,
+        i.detail,
         i.created_at,
         i.aproved_at,
         i.deliver_at
@@ -88,8 +148,15 @@ export async function add(req, res) {
   try {
     await client.query("BEGIN");
 
-    const { id_user, id_project, total_harga, status, pembayaran, barang } =
-      req.body;
+    const {
+      id_user,
+      id_project,
+      total_harga,
+      status,
+      pembayaran,
+      detail,
+      barang,
+    } = req.body;
 
     // VALIDASI
     if (!Number.isInteger(Number(id_project)) || Number(id_project) <= 0) {
@@ -106,11 +173,12 @@ export async function add(req, res) {
         id_project,
         total_harga,
         status,
-        pembayaran
+        pembayaran,
+        detail
       )
-      VALUES ($1, $2, $3, $4, $5)
+      VALUES ($1, $2, $3, $4, $5, $6)
       RETURNING id_invoice`,
-      [id_user, id_project, total_harga, status, pembayaran],
+      [id_user, id_project, total_harga, status, pembayaran, detail],
     );
 
     const id_invoice = invoiceResult.rows[0].id_invoice;
@@ -154,7 +222,7 @@ export async function update(req, res) {
   try {
     await client.query("BEGIN");
 
-    const { id_invoice, id_project, total_harga, pembayaran, barang } =
+    const { id_invoice, id_project, total_harga, pembayaran, detail, barang } =
       req.body;
 
     // UPDATE INVOICE
@@ -164,10 +232,11 @@ export async function update(req, res) {
       SET
         id_project = $1,
         total_harga = $2,
-        pembayaran = $3
-      WHERE id_invoice = $4
+        pembayaran = $3,
+        detail = $4
+      WHERE id_invoice = $5
       `,
-      [id_project, total_harga, pembayaran, id_invoice],
+      [id_project, total_harga, pembayaran, detail, id_invoice],
     );
 
     // HAPUS DETAIL LAMA
