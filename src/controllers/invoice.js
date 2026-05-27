@@ -82,7 +82,7 @@ export async function getRole(req, res) {
       values.push(id_user);
     } else if (role === "Gudang") {
       query += `
-        AND i.status NOT IN ('pending', 'rejected')
+        AND i.status NOT IN ('menunggu', 'ditolak')
       `;
     }
 
@@ -372,6 +372,72 @@ export async function wait(req, res) {
   } catch (err) {
     return res.status(500).json({
       message: "Gagal ambil data pesanan",
+      detail: err.message,
+    });
+  }
+}
+
+export async function search(req, res) {
+  try {
+    const { keyword, role, id_user } = req.body;
+
+    let query = `
+      SELECT
+        i.id_invoice,
+        i.id_user,
+        u.name AS name,
+
+        i.id_project,
+        p.nama_project,
+
+        i.total_harga,
+        i.status,
+        i.pembayaran,
+        i.detail,
+        i.created_at,
+        i.aproved_at,
+        i.deliver_at
+
+      FROM tbl_invoice i
+
+      LEFT JOIN tbl_user u
+        ON i.id_user = u.id_user
+
+      LEFT JOIN tbl_project p
+        ON i.id_project = p.id_project
+
+      WHERE
+        i.deleted_at IS NULL
+        AND (
+          p.nama_project ILIKE $1
+        )
+    `;
+
+    const values = [`%${keyword}%`];
+
+    // FILTER ROLE
+    if (role === "Admin Kantor") {
+      // semua data
+    } else if (role === "Lapangan") {
+      query += ` AND i.id_user = $2`;
+      values.push(id_user);
+    } else if (role === "Gudang") {
+      query += `
+        AND i.status NOT IN ('menunggu', 'ditolak')
+      `;
+    }
+
+    query += ` ORDER BY i.id_invoice DESC`;
+
+    const result = await pool.query(query, values);
+
+    return res.json({
+      message: "Berhasil mencari data invoice",
+      val: result.rows,
+    });
+  } catch (err) {
+    return res.status(500).json({
+      message: "Gagal mencari data invoice",
       detail: err.message,
     });
   }

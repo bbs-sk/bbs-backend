@@ -9,6 +9,7 @@ import {
   monthly,
   wait,
   recent,
+  search,
 } from "../controllers/invoice.js";
 
 const router = express.Router();
@@ -22,5 +23,6 @@ router.post("/status", status);
 router.get("/monthly", monthly);
 router.get("/wait", wait);
 router.post("/recent", recent);
+router.post("/search", search);
 
 export default router;
