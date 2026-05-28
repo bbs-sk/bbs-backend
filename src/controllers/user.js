@@ -8,7 +8,11 @@ dotenv.config();
 export async function get(req, res) {
   try {
     const result = await pool.query(
-      "SELECT * FROM tbl_user ORDER BY id_user DESC",
+      `
+      SELECT *
+      FROM tbl_user
+      ORDER BY status DESC, id_user DESC
+      `,
     );
 
     return res.json(result.rows);
@@ -92,17 +96,49 @@ export async function remove(req, res) {
   }
 
   try {
-    const result = await pool.query("DELETE FROM tbl_user WHERE id_user = $1", [
-      id_user,
-    ]);
+    const result = await pool.query(
+      `UPDATE tbl_user 
+       SET status = 0 
+       WHERE id_user = $1`,
+      [id_user],
+    );
 
     return res.json({
-      message: "User berhasil dihapus",
+      message: "User berhasil dinonaktifkan",
       affectedRows: result.rowCount,
     });
   } catch (err) {
     return res.status(500).json({
-      message: "Gagal hapus data",
+      message: "Gagal update data",
+      detail: err.message,
+    });
+  }
+}
+
+export async function restore(req, res) {
+  const { id_user } = req.body;
+
+  if (!id_user) {
+    return res.status(400).json({
+      message: "id_user wajib diisi",
+    });
+  }
+
+  try {
+    const result = await pool.query(
+      `UPDATE tbl_user
+       SET status = 1
+       WHERE id_user = $1`,
+      [id_user],
+    );
+
+    return res.json({
+      message: "User berhasil diaktifkan kembali",
+      affectedRows: result.rowCount,
+    });
+  } catch (err) {
+    return res.status(500).json({
+      message: "Gagal mengaktifkan user",
       detail: err.message,
     });
   }

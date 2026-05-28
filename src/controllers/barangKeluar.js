@@ -9,15 +9,30 @@ export async function get(req, res) {
           bk.id_barang,
           b.nama_barang,
           b.kode_barang,
+
           bk.id_invoice,
+
+          i.id_project,
+          p.nama_project,
+
           bk.jumlah,
           bk.harga_jual,
           bk.datetime,
           bk.status
+
        FROM tbl_brg_keluar bk
+
        JOIN tbl_barang b 
             ON bk.id_barang = b.id_barang
+
+       JOIN tbl_invoice i
+            ON bk.id_invoice = i.id_invoice
+
+       JOIN tbl_project p
+            ON i.id_project = p.id_project
+
        WHERE bk.status = 1
+
        ORDER BY bk.id_brg_keluar DESC`,
     );
 
@@ -204,6 +219,8 @@ export async function getLaporanPenjualan(req, res) {
         ) AS total_price,
 
         SUM(
+          CAST(bk.jumlah AS NUMERIC)
+          *
           CAST(bk.profit AS NUMERIC)
         ) AS total_profit,
 
