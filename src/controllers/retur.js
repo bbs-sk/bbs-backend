@@ -7,18 +7,34 @@ export async function get(req, res) {
       `SELECT 
           r.id_retur,
           r.id_barang,
+
           b.nama_barang,
           b.kode_barang,
+
           r.id_invoice,
+
+          i.id_project,
+          p.nama_project,
+
           r.jumlah,
           r.harga_jual,
           r.kondisi,
           r.datetime,
           r.status
+
        FROM tbl_retur r
+
        JOIN tbl_barang b
             ON r.id_barang = b.id_barang
+
+       JOIN tbl_invoice i
+            ON r.id_invoice = i.id_invoice
+
+       JOIN tbl_project p
+            ON i.id_project = p.id_project
+
        WHERE r.status = 1
+
        ORDER BY r.id_retur DESC`,
     );
 
