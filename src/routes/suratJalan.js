@@ -1,9 +1,14 @@
 import express from "express";
-import { get, add, update, remove } from "../controllers/suratJalan.js";
+import {
+  add,
+  update,
+  remove,
+  getByInvoice,
+} from "../controllers/suratJalan.js";
 
 const router = express.Router();
 
-router.post("/", get);
+router.get("/invoice/:id_invoice", getByInvoice);
 router.post("/add", add);
 router.post("/update", update);
 router.post("/delete", remove);

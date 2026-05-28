@@ -14,6 +14,7 @@ import brgMasukRoutes from "./routes/barangMasuk.js";
 import brgKeluarRoutes from "./routes/barangKeluar.js";
 import returRoutes from "./routes/retur.js";
 import mixRoutes from "./routes/mix.js";
+import suratJalanRoutes from "./routes/suratJalan.js";
 
 const app = express();
 
@@ -36,5 +37,6 @@ app.use("/api/brgMasuk", brgMasukRoutes);
 app.use("/api/brgKeluar", brgKeluarRoutes);
 app.use("/api/retur", returRoutes);
 app.use("/api/mix", mixRoutes);
+app.use("/api/suratJalan", suratJalanRoutes);
 
 export default app;

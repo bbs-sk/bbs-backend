@@ -158,13 +158,6 @@ export async function add(req, res) {
       barang,
     } = req.body;
 
-    // VALIDASI
-    if (!Number.isInteger(Number(id_project)) || Number(id_project) <= 0) {
-      return res.status(400).json({
-        message: "id_project harus integer > 0",
-      });
-    }
-
     // INSERT INVOICE
     const invoiceResult = await client.query(
       `INSERT INTO tbl_invoice
@@ -181,20 +174,50 @@ export async function add(req, res) {
       [id_user, id_project, total_harga, status, pembayaran, detail],
     );
 
+    const status_barang_keluar = status === "selesai" ? 1 : 0;
     const id_invoice = invoiceResult.rows[0].id_invoice;
 
     // INSERT BARANG KELUAR
     for (const item of barang) {
+      // AMBIL HPP
+      const barangResult = await client.query(
+        `
+        SELECT hpp
+        FROM tbl_barang
+        WHERE id_barang = $1
+        `,
+        [item.id_barang],
+      );
+
+      if (barangResult.rowCount === 0) {
+        throw new Error(`Barang ID ${item.id_barang} tidak ditemukan`);
+      }
+
+      const hpp = Number(barangResult.rows[0].hpp);
+
+      // HITUNG PROFIT PER ITEM
+      const profit = Number(item.harga_jual) - hpp;
+
+      // INSERT DETAIL
       await client.query(
         `INSERT INTO tbl_brg_keluar
         (
           id_barang,
           id_invoice,
           jumlah,
-          harga_jual
+          harga_jual,
+          profit,
+          status
         )
-        VALUES ($1, $2, $3, $4)`,
-        [item.id_barang, id_invoice, item.jumlah, item.harga_jual],
+        VALUES ($1, $2, $3, $4, $5, $6)`,
+        [
+          item.id_barang,
+          id_invoice,
+          item.jumlah,
+          item.harga_jual,
+          profit,
+          status_barang_keluar,
+        ],
       );
     }
 
@@ -250,6 +273,24 @@ export async function update(req, res) {
 
     // INSERT DETAIL BARU
     for (const item of barang) {
+      // AMBIL HPP
+      const barangResult = await client.query(
+        `
+        SELECT hpp
+        FROM tbl_barang
+        WHERE id_barang = $1
+        `,
+        [item.id_barang],
+      );
+
+      if (barangResult.rowCount === 0) {
+        throw new Error(`Barang ID ${item.id_barang} tidak ditemukan`);
+      }
+
+      const hpp = Number(barangResult.rows[0].hpp);
+
+      const profit = Number(item.harga_jual) - hpp;
+
       await client.query(
         `
         INSERT INTO tbl_brg_keluar
@@ -257,11 +298,12 @@ export async function update(req, res) {
           id_barang,
           id_invoice,
           jumlah,
-          harga_jual
+          harga_jual,
+          profit
         )
-        VALUES ($1, $2, $3, $4)
+        VALUES ($1, $2, $3, $4, $5)
         `,
-        [item.id_barang, id_invoice, item.jumlah, item.harga_jual],
+        [item.id_barang, id_invoice, item.jumlah, item.harga_jual, profit],
       );
     }
 
@@ -282,60 +324,171 @@ export async function update(req, res) {
   }
 }
 
-export async function remove(req, res) {
-  const { id_invoice } = req.body;
-  const idInvoiceNum = Number(id_invoice);
-
-  if (!Number.isInteger(idInvoiceNum) || idInvoiceNum <= 0) {
-    return res.status(400).json({ message: "id_invoice harus integer > 0" });
-  }
+export async function pay(req, res) {
+  const client = await pool.connect();
 
   try {
-    const result = await pool.query(
-      `UPDATE tbl_invoice 
-       SET deleted_at = NOW() 
-       WHERE id_invoice = $1 AND deleted_at IS NULL`,
+    await client.query("BEGIN");
+
+    const { id_invoice, pembayaran, detail } = req.body;
+
+    // VALIDASI
+    if (!id_invoice) {
+      throw new Error("ID invoice wajib diisi");
+    }
+
+    // UPDATE PEMBAYARAN & DETAIL SAJA
+    const result = await client.query(
+      `
+      UPDATE tbl_invoice
+      SET
+        pembayaran = $1,
+        detail = $2
+      WHERE id_invoice = $3
+      RETURNING *
+      `,
+      [pembayaran, detail, id_invoice],
+    );
+
+    // CEK DATA ADA / TIDAK
+    if (result.rowCount === 0) {
+      throw new Error("Invoice tidak ditemukan");
+    }
+
+    await client.query("COMMIT");
+
+    return res.status(200).json({
+      message: "Pembayaran invoice berhasil diperbarui",
+      data: result.rows[0],
+    });
+  } catch (err) {
+    await client.query("ROLLBACK");
+
+    return res.status(500).json({
+      message: "Gagal update pembayaran invoice",
+      detail: err.message,
+    });
+  } finally {
+    client.release();
+  }
+}
+
+export async function remove(req, res) {
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    const { id_invoice } = req.body;
+
+    const idInvoiceNum = Number(id_invoice);
+
+    if (!Number.isInteger(idInvoiceNum) || idInvoiceNum <= 0) {
+      return res.status(400).json({
+        message: "id_invoice harus integer > 0",
+      });
+    }
+
+    const invoiceResult = await client.query(
+      `
+      UPDATE tbl_invoice
+      SET deleted_at = NOW()
+      WHERE id_invoice = $1
+      AND deleted_at IS NULL
+      RETURNING id_invoice
+      `,
       [idInvoiceNum],
     );
 
-    if (result.rowCount === 0) {
+    if (invoiceResult.rowCount === 0) {
+      await client.query("ROLLBACK");
+
       return res.status(404).json({
         message: "Invoice tidak ditemukan atau sudah dihapus",
       });
     }
 
-    return res.json({
+    await client.query(
+      `
+      UPDATE tbl_brg_keluar
+      SET status = 0
+      WHERE id_invoice = $1
+      `,
+      [idInvoiceNum],
+    );
+
+    await client.query("COMMIT");
+
+    return res.status(200).json({
       message: "Invoice berhasil dihapus (soft delete)",
     });
   } catch (err) {
+    await client.query("ROLLBACK");
+
     return res.status(500).json({
       message: "Gagal soft delete invoice",
       detail: err.message,
     });
+  } finally {
+    client.release();
   }
 }
 
 export async function status(req, res) {
+  const client = await pool.connect();
+
   try {
+    await client.query("BEGIN");
+
     const { id_invoice, status } = req.body;
 
-    await pool.query(
+    // UPDATE STATUS INVOICE
+    await client.query(
       `
       UPDATE tbl_invoice
       SET status = $1
       WHERE id_invoice = $2
-    `,
+      `,
       [status, id_invoice],
     );
+
+    // JIKA STATUS DIKIRIM
+    if (String(status).toLowerCase() === "dikirim") {
+      await client.query(
+        `
+        UPDATE tbl_brg_keluar
+        SET status = 1
+        WHERE id_invoice = $1
+        `,
+        [id_invoice],
+      );
+    }
+
+    if (String(status).toLowerCase() === "disetujui") {
+      await client.query(
+        `
+        UPDATE tbl_brg_keluar
+        SET status = 0
+        WHERE id_invoice = $1
+        `,
+        [id_invoice],
+      );
+    }
+
+    await client.query("COMMIT");
 
     return res.json({
       message: "Status berhasil diupdate",
     });
   } catch (err) {
+    await client.query("ROLLBACK");
+
     return res.status(500).json({
       message: "Gagal update status",
       detail: err.message,
     });
+  } finally {
+    client.release();
   }
 }
 

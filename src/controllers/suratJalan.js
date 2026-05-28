@@ -1,19 +1,35 @@
 import { pool } from "../config/db.js";
 
 // GET DATA SURAT JALAN
-export async function get(req, res) {
+export async function getByInvoice(req, res) {
+  const { id_invoice } = req.params;
+
   try {
     const result = await pool.query(
-      `SELECT *
-       FROM tbl_surat_jalan
-       WHERE status = 1
-       ORDER BY id_surat_jalan DESC`,
+      `
+      SELECT sj.*, i.id_user, u.name, p.nama_project
+      FROM tbl_surat_jalan sj
+      JOIN tbl_invoice i
+        ON sj.id_invoice = i.id_invoice
+      JOIN tbl_user u
+        ON i.id_user = u.id_user
+      JOIN tbl_project p
+        ON i.id_project = p.id_project
+      WHERE sj.id_invoice = $1
+      AND sj.status = 1
+      LIMIT 1
+      `,
+      [id_invoice],
     );
 
-    return res.json(result.rows);
+    if (result.rows.length === 0) {
+      return res.json(null);
+    }
+
+    return res.json(result.rows[0]);
   } catch (err) {
     return res.status(500).json({
-      message: "Gagal ambil data surat jalan",
+      message: "Gagal ambil surat jalan",
       detail: err.message,
     });
   }
@@ -57,11 +73,10 @@ export async function update(req, res) {
     const result = await pool.query(
       `UPDATE tbl_surat_jalan
        SET
-          id_invoice = $1,
-          no_surat_jalan = $2,
-          plat_kendaraan = $3
-       WHERE id_surat_jalan = $4`,
-      [id_invoice, no_surat_jalan, plat_kendaraan, id_surat_jalan],
+          no_surat_jalan = $1,
+          plat_kendaraan = $2
+       WHERE id_invoice = $3`,
+      [no_surat_jalan, plat_kendaraan, id_invoice],
     );
 
     if (result.rowCount === 0) {

@@ -4,6 +4,7 @@ import {
   getRole,
   add,
   update,
+  pay,
   remove,
   status,
   monthly,
@@ -18,6 +19,7 @@ router.post("/", get);
 router.post("/role", getRole);
 router.post("/add", add);
 router.post("/update", update);
+router.post("/pay", pay);
 router.post("/delete", remove);
 router.post("/status", status);
 router.get("/monthly", monthly);

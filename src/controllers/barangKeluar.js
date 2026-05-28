@@ -48,7 +48,7 @@ export async function getIdInvoice(req, res) {
        FROM tbl_brg_keluar bk
        JOIN tbl_barang b 
             ON bk.id_barang = b.id_barang
-       WHERE bk.status = 1 and bk.id_invoice = $1
+       WHERE bk.id_invoice = $1
        ORDER BY bk.id_brg_keluar DESC`,
       [id_invoice],
     );
