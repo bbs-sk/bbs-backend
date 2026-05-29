@@ -234,6 +234,8 @@ export async function getMonthly(req, res) {
         DATE_PART('month', datetime::date) = DATE_PART('month', CURRENT_DATE)
         AND
         DATE_PART('year', datetime::date) = DATE_PART('year', CURRENT_DATE)
+        AND
+        status = 1
     `);
 
     return res.json(result.rows[0]);

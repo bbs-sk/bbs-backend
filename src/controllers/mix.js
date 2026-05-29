@@ -13,6 +13,7 @@ export async function getActivity(req, res) {
       FROM tbl_brg_masuk bm
       JOIN tbl_barang b 
           ON bm.id_barang = b.id_barang
+      WHERE bm.status = 1
 
       UNION ALL
 
@@ -26,6 +27,7 @@ export async function getActivity(req, res) {
       FROM tbl_brg_keluar bk
       JOIN tbl_barang b 
           ON bk.id_barang = b.id_barang
+      WHERE bk.status = 1
 
       UNION ALL
 
