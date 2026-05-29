@@ -179,13 +179,13 @@ export async function add(req, res) {
 
     // INSERT BARANG KELUAR
     for (const item of barang) {
-      // AMBIL HPP
+      // AMBIL DATA BARANG
       const barangResult = await client.query(
         `
-        SELECT hpp
-        FROM tbl_barang
-        WHERE id_barang = $1
-        `,
+    SELECT hpp, jumlah
+    FROM tbl_barang
+    WHERE id_barang = $1
+    `,
         [item.id_barang],
       );
 
@@ -194,22 +194,31 @@ export async function add(req, res) {
       }
 
       const hpp = Number(barangResult.rows[0].hpp);
+      const stock = Number(barangResult.rows[0].jumlah);
 
-      // HITUNG PROFIT PER ITEM
+      // VALIDASI STOCK
+      if (Number(item.jumlah) > stock) {
+        throw new Error(
+          `Stock barang tidak mencukupi untuk ID ${item.id_barang}`,
+        );
+      }
+
       const profit = Number(item.harga_jual) - hpp;
 
       // INSERT DETAIL
       await client.query(
-        `INSERT INTO tbl_brg_keluar
-        (
-          id_barang,
-          id_invoice,
-          jumlah,
-          harga_jual,
-          profit,
-          status
-        )
-        VALUES ($1, $2, $3, $4, $5, $6)`,
+        `
+    INSERT INTO tbl_brg_keluar
+    (
+      id_barang,
+      id_invoice,
+      jumlah,
+      harga_jual,
+      profit,
+      status
+    )
+    VALUES ($1, $2, $3, $4, $5, $6)
+    `,
         [
           item.id_barang,
           id_invoice,
@@ -218,6 +227,16 @@ export async function add(req, res) {
           profit,
           status_barang_keluar,
         ],
+      );
+
+      // KURANGI STOCK
+      await client.query(
+        `
+    UPDATE tbl_barang
+    SET jumlah = jumlah - $1
+    WHERE id_barang = $2
+    `,
+        [item.jumlah, item.id_barang],
       );
     }
 
@@ -408,6 +427,27 @@ export async function remove(req, res) {
       });
     }
 
+    const barangKeluar = await client.query(
+      `
+      SELECT id_barang, jumlah
+      FROM tbl_brg_keluar
+      WHERE id_invoice = $1
+      `,
+      [idInvoiceNum],
+    );
+
+    // KEMBALIKAN STOCK
+    for (const item of barangKeluar.rows) {
+      await client.query(
+        `
+        UPDATE tbl_barang
+        SET jumlah = jumlah + $1
+        WHERE id_barang = $2
+        `,
+        [item.jumlah, item.id_barang],
+      );
+    }
+
     await client.query(
       `
       UPDATE tbl_brg_keluar
@@ -471,6 +511,37 @@ export async function status(req, res) {
         SET status = 0
         WHERE id_invoice = $1
         `,
+        [id_invoice],
+      );
+    }
+
+    if (String(status).toLowerCase() === "ditolak") {
+      const barangKeluar = await client.query(
+        `
+        SELECT id_barang, jumlah
+        FROM tbl_brg_keluar
+        WHERE id_invoice = $1
+        `,
+        [id_invoice],
+      );
+
+      for (const item of barangKeluar.rows) {
+        await client.query(
+          `
+      UPDATE tbl_barang
+      SET jumlah = jumlah + $1
+      WHERE id_barang = $2
+      `,
+          [item.jumlah, item.id_barang],
+        );
+      }
+
+      await client.query(
+        `
+    UPDATE tbl_brg_keluar
+    SET status = 0
+    WHERE id_invoice = $1
+    `,
         [id_invoice],
       );
     }
