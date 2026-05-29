@@ -197,3 +197,44 @@ export async function search(req, res) {
     });
   }
 }
+
+// GET RETUR BERDASARKAN INVOICE
+export async function getReturByInvoice(req, res) {
+  try {
+    const { id_invoice } = req.params;
+
+    const result = await pool.query(
+      `
+      SELECT
+        r.id_retur,
+        r.id_invoice,
+        r.id_barang,
+        r.jumlah,
+        r.harga_jual,
+        r.kondisi,
+        r.datetime,
+
+        b.nama_barang,
+        b.satuan
+
+      FROM tbl_retur r
+
+      JOIN tbl_barang b
+      ON b.id_barang = r.id_barang
+
+      WHERE r.id_invoice = $1
+
+      ORDER BY r.id_retur DESC
+      `,
+      [id_invoice],
+    );
+
+    res.json(result.rows);
+  } catch (err) {
+    console.log(err);
+
+    res.status(500).json({
+      message: err.message,
+    });
+  }
+}
