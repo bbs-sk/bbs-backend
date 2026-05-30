@@ -209,23 +209,36 @@ export async function getLaporanPenjualan(req, res) {
           'YYYY-MM-DD'
         ) AS date,
 
-        SUM(
-          CAST(bk.jumlah AS INTEGER)
-        ) AS total_items,
+        SUM(CAST(bk.jumlah AS INTEGER)) AS total_items,
 
         COUNT(DISTINCT bk.id_barang) AS total_produk,
 
         SUM(
-          CAST(bk.jumlah AS NUMERIC)
-          *
-          CAST(bk.harga_jual AS NUMERIC)
+          CAST(bk.jumlah AS NUMERIC) * CAST(bk.harga_jual AS NUMERIC)
         ) AS total_price,
 
+        -- Keuntungan kotor dari penjualan
         SUM(
-          CAST(bk.jumlah AS NUMERIC)
-          *
-          CAST(bk.profit AS NUMERIC)
-        ) AS total_profit,
+          CAST(bk.jumlah AS NUMERIC) * CAST(bk.profit AS NUMERIC)
+        ) AS total_profit_kotor,
+
+        -- Kerugian dari retur (hpp × jumlah_retur per invoice)
+        COALESCE((
+          SELECT SUM(CAST(r.hpp AS NUMERIC) * CAST(r.jumlah AS NUMERIC))
+          FROM tbl_retur r
+          WHERE r.id_invoice = bk.id_invoice
+            AND r.status = 1
+        ), 0) AS total_kerugian_retur,
+
+        -- Keuntungan bersih
+        SUM(
+          CAST(bk.jumlah AS NUMERIC) * CAST(bk.profit AS NUMERIC)
+        ) - COALESCE((
+          SELECT SUM(CAST(r.hpp AS NUMERIC) * CAST(r.jumlah AS NUMERIC))
+          FROM tbl_retur r
+          WHERE r.id_invoice = bk.id_invoice
+            AND r.status = 1
+        ), 0) AS total_profit,
 
         i.pembayaran AS status_pembayaran
 

@@ -53,7 +53,11 @@ export async function add(req, res) {
   try {
     await client.query("BEGIN");
 
-    const { id_barang, id_invoice, jumlah, harga_jual, kondisi } = req.body;
+    const { id_barang, id_invoice, jumlah, harga_jual, hpp, kondisi } =
+      req.body;
+
+    console.log("req.body:", req.body); // ← cek apakah hpp masuk dari frontend
+    console.log("hpp value:", hpp); // ← cek nilainya
 
     const barangResult = await client.query(
       `
@@ -92,12 +96,13 @@ export async function add(req, res) {
         id_invoice,
         jumlah,
         harga_jual,
+        hpp,
         kondisi
       )
-      VALUES ($1, $2, $3, $4, $5)
+      VALUES ($1, $2, $3, $4, $5, $6)
       RETURNING id_retur
       `,
-      [id_barang, id_invoice, jumlah, harga_jual, kondisi],
+      [id_barang, id_invoice, jumlah, harga_jual, hpp, kondisi],
     );
 
     await client.query(
@@ -260,6 +265,7 @@ export async function getReturByInvoice(req, res) {
         r.id_barang,
         r.jumlah,
         r.harga_jual,
+        r.hpp,
         r.kondisi,
         r.datetime,
 

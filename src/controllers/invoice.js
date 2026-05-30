@@ -128,7 +128,13 @@ export async function recent(req, res) {
         i.detail,
         i.created_at,
         i.aproved_at,
-        i.deliver_at
+        i.deliver_at,
+
+        EXISTS (
+          SELECT 1
+          FROM tbl_retur r
+          WHERE r.id_invoice = i.id_invoice
+        ) AS has_retur
 
       FROM tbl_invoice i
 
