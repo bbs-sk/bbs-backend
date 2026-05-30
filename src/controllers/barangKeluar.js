@@ -57,6 +57,7 @@ export async function getIdInvoice(req, res) {
           b.satuan,
           bk.id_invoice,
           bk.jumlah,
+          bk.profit,
           bk.harga_jual,
           bk.datetime,
           bk.status

@@ -47,34 +47,83 @@ export async function get(req, res) {
   }
 }
 
-// TAMBAH DATA RETUR
 export async function add(req, res) {
-  const { id_barang, id_invoice, jumlah, harga_jual, kondisi } = req.body;
+  const client = await pool.connect();
 
   try {
-    const result = await pool.query(
-      `INSERT INTO tbl_retur
-        (
-          id_barang,
-          id_invoice,
-          jumlah,
-          harga_jual,
-          kondisi
-        )
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING id_retur`,
+    await client.query("BEGIN");
+
+    const { id_barang, id_invoice, jumlah, harga_jual, kondisi } = req.body;
+
+    const barangResult = await client.query(
+      `
+      SELECT nama_barang, jumlah
+      FROM tbl_barang
+      WHERE id_barang = $1
+      `,
+      [id_barang],
+    );
+
+    if (barangResult.rowCount === 0) {
+      await client.query("ROLLBACK");
+
+      return res.status(404).json({
+        message: "Barang tidak ditemukan",
+      });
+    }
+
+    const namaBarang = barangResult.rows[0].nama_barang;
+    const stok = Number(barangResult.rows[0].jumlah);
+    const qtyRetur = Number(jumlah);
+
+    if (qtyRetur > stok) {
+      await client.query("ROLLBACK");
+
+      return res.status(400).json({
+        message: `Stok ${namaBarang} tidak mencukupi. Tersedia ${stok}, diminta ${qtyRetur}.`,
+      });
+    }
+
+    const result = await client.query(
+      `
+      INSERT INTO tbl_retur
+      (
+        id_barang,
+        id_invoice,
+        jumlah,
+        harga_jual,
+        kondisi
+      )
+      VALUES ($1, $2, $3, $4, $5)
+      RETURNING id_retur
+      `,
       [id_barang, id_invoice, jumlah, harga_jual, kondisi],
     );
+
+    await client.query(
+      `
+      UPDATE tbl_barang
+      SET jumlah = jumlah - $1
+      WHERE id_barang = $2
+      `,
+      [jumlah, id_barang],
+    );
+
+    await client.query("COMMIT");
 
     return res.status(201).json({
       message: "Data retur berhasil ditambahkan",
       id: result.rows[0].id_retur,
     });
   } catch (err) {
+    await client.query("ROLLBACK");
+
     return res.status(500).json({
       message: "Gagal tambah data retur",
       detail: err.message,
     });
+  } finally {
+    client.release();
   }
 }
 

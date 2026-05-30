@@ -17,7 +17,13 @@ export async function get(req, res) {
         i.detail,
         i.created_at,
         i.aproved_at,
-        i.deliver_at
+        i.deliver_at,
+
+        EXISTS (
+          SELECT 1
+          FROM tbl_retur r
+          WHERE r.id_invoice = i.id_invoice
+        ) AS has_retur
 
       FROM tbl_invoice i
 
@@ -60,7 +66,13 @@ export async function getRole(req, res) {
         i.detail,
         i.created_at,
         i.aproved_at,
-        i.deliver_at
+        i.deliver_at,
+
+        EXISTS (
+          SELECT 1
+          FROM tbl_retur r
+          WHERE r.id_invoice = i.id_invoice
+        ) AS has_retur
 
       FROM tbl_invoice i
 
@@ -208,17 +220,17 @@ export async function add(req, res) {
       // INSERT DETAIL
       await client.query(
         `
-    INSERT INTO tbl_brg_keluar
-    (
-      id_barang,
-      id_invoice,
-      jumlah,
-      harga_jual,
-      profit,
-      status
-    )
-    VALUES ($1, $2, $3, $4, $5, $6)
-    `,
+      INSERT INTO tbl_brg_keluar
+      (
+        id_barang,
+        id_invoice,
+        jumlah,
+        harga_jual,
+        profit,
+        status
+      )
+      VALUES ($1, $2, $3, $4, $5, $6)
+      `,
         [
           item.id_barang,
           id_invoice,
@@ -267,7 +279,103 @@ export async function update(req, res) {
     const { id_invoice, id_project, total_harga, pembayaran, detail, barang } =
       req.body;
 
-    // UPDATE INVOICE
+    const oldDetail = await client.query(
+      `
+      SELECT
+        id_barang,
+        jumlah
+      FROM tbl_brg_keluar
+      WHERE id_invoice = $1
+      `,
+      [id_invoice],
+    );
+
+    const oldMap = new Map();
+
+    oldDetail.rows.forEach((row) => {
+      oldMap.set(Number(row.id_barang), Number(row.jumlah));
+    });
+
+    for (const item of barang) {
+      const idBarang = Number(item.id_barang);
+      const jumlahBaru = Number(item.jumlah);
+
+      const jumlahLama = oldMap.get(idBarang) || 0;
+
+      const selisih = jumlahBaru - jumlahLama;
+
+      if (selisih > 0) {
+        const stockResult = await client.query(
+          `
+          SELECT jumlah
+          FROM tbl_barang
+          WHERE id_barang = $1
+          `,
+          [idBarang],
+        );
+
+        if (stockResult.rowCount === 0) {
+          throw new Error(`Barang ID ${idBarang} tidak ditemukan`);
+        }
+
+        const stock = Number(stockResult.rows[0].jumlah);
+
+        if (stock < selisih) {
+          await client.query("ROLLBACK");
+
+          return res.status(400).json({
+            message: "Stok barang tidak mencukupi",
+            detail: `Barang ID ${idBarang} hanya tersedia ${stock} unit`,
+          });
+        }
+      }
+    }
+
+    for (const item of barang) {
+      const idBarang = Number(item.id_barang);
+
+      const jumlahBaru = Number(item.jumlah);
+
+      const jumlahLama = oldMap.get(idBarang) || 0;
+
+      const selisih = jumlahBaru - jumlahLama;
+
+      if (selisih !== 0) {
+        await client.query(
+          `
+          UPDATE tbl_barang
+          SET jumlah = jumlah - $1
+          WHERE id_barang = $2
+          `,
+          [selisih, idBarang],
+        );
+      }
+    }
+
+    // =========================
+    // KEMBALIKAN STOK BARANG
+    // YANG DIHAPUS DARI INVOICE
+    // =========================
+    const newBarangIds = barang.map((x) => Number(x.id_barang));
+
+    for (const oldItem of oldDetail.rows) {
+      const idBarang = Number(oldItem.id_barang);
+
+      if (!newBarangIds.includes(idBarang)) {
+        await client.query(
+          `
+          UPDATE tbl_barang
+          SET jumlah = jumlah + $1
+          WHERE id_barang = $2
+          `,
+          [oldItem.jumlah, idBarang],
+        );
+      }
+    }
+
+    // =========================
+    // UPDATE HEADER INVOICE
+    // =========================
     await client.query(
       `
       UPDATE tbl_invoice
@@ -281,7 +389,9 @@ export async function update(req, res) {
       [id_project, total_harga, pembayaran, detail, id_invoice],
     );
 
+    // =========================
     // HAPUS DETAIL LAMA
+    // =========================
     await client.query(
       `
       DELETE FROM tbl_brg_keluar
@@ -290,9 +400,10 @@ export async function update(req, res) {
       [id_invoice],
     );
 
+    // =========================
     // INSERT DETAIL BARU
+    // =========================
     for (const item of barang) {
-      // AMBIL HPP
       const barangResult = await client.query(
         `
         SELECT hpp
