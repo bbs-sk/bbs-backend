@@ -56,9 +56,6 @@ export async function add(req, res) {
     const { id_barang, id_invoice, jumlah, harga_jual, hpp, kondisi } =
       req.body;
 
-    console.log("req.body:", req.body); // ← cek apakah hpp masuk dari frontend
-    console.log("hpp value:", hpp); // ← cek nilainya
-
     const barangResult = await client.query(
       `
       SELECT nama_barang, jumlah
@@ -286,8 +283,6 @@ export async function getReturByInvoice(req, res) {
 
     res.json(result.rows);
   } catch (err) {
-    console.log(err);
-
     res.status(500).json({
       message: err.message,
     });

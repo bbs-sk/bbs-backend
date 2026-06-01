@@ -42,8 +42,6 @@ export async function add(req, res) {
       id: result.rows[0].id_user,
     });
   } catch (err) {
-    console.log(err);
-
     return res.status(500).json({
       message: "Gagal tambah data",
       detail: err.message,
@@ -78,7 +76,6 @@ export async function update(req, res) {
       affectedRows: result.rowCount,
     });
   } catch (err) {
-    console.log(err);
     return res.status(500).json({
       message: "Gagal update data",
       detail: err.message,
@@ -195,8 +192,6 @@ export async function login(req, res) {
       },
     });
   } catch (err) {
-    console.log(err);
-
     return res.status(500).json({
       message: "Login gagal",
       detail: err.message,

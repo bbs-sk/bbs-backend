@@ -38,10 +38,9 @@ export async function get(req, res) {
       GROUP BY i.id_invoice
       ORDER BY i.id_invoice DESC
     `);
-    console.log("RESULT:", result.rows);
     return res.json(result.rows);
   } catch (err) {
-    console.error("❌ ERROR GET ORDER:", err);
+
 
     return res.status(500).json({
       message: "Gagal ambil data order",
@@ -58,8 +57,6 @@ export async function add(req, res) {
 
   try {
     const { invoice, items } = req.body;
-
-    console.log("📥 PAYLOAD ORDER:", JSON.stringify(req.body, null, 2));
 
     // VALIDASI
     if (!invoice || !items || items.length === 0) {
@@ -114,8 +111,6 @@ export async function add(req, res) {
   } catch (err) {
     await client.query("ROLLBACK");
 
-    console.error("❌ ERROR ADD ORDER:", err);
-
     return res.status(500).json({
       message: "Gagal membuat order",
       error: err.message,
@@ -136,8 +131,6 @@ export async function update(req, res) {
 
   try {
     const { id_invoice, invoice, items } = req.body;
-
-    console.log("📥 UPDATE ORDER:", JSON.stringify(req.body, null, 2));
 
     if (!id_invoice) {
       return res.status(400).json({
@@ -192,8 +185,6 @@ export async function update(req, res) {
   } catch (err) {
     await client.query("ROLLBACK");
 
-    console.error("❌ ERROR UPDATE ORDER:", err);
-
     return res.status(500).json({
       message: "Gagal update order",
       error: err.message,
@@ -234,7 +225,6 @@ export async function remove(req, res) {
       message: "Order berhasil dihapus",
     });
   } catch (err) {
-    console.error("❌ ERROR DELETE ORDER:", err);
 
     return res.status(500).json({
       message: "Gagal hapus order",
@@ -283,8 +273,6 @@ export async function approve(req, res) {
     });
   } catch (err) {
     await client.query("ROLLBACK");
-
-    console.error("❌ ERROR APPROVE ORDER:", err);
 
     return res.status(500).json({
       message: "Gagal approve order",

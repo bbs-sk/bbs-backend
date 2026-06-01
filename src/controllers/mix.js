@@ -48,7 +48,6 @@ export async function getActivity(req, res) {
 
     return res.json(result.rows);
   } catch (err) {
-    console.log(err);
     return res.status(500).json({
       message: "Gagal ambil data activity",
       detail: err.message,
