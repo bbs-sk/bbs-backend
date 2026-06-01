@@ -15,7 +15,10 @@ export async function get(req, res) {
         i.status,
         i.pembayaran,
         i.detail,
-        i.created_at,
+        TO_CHAR(
+          i.created_at,
+          'YYYY-MM-DD HH24:MI:SS'
+        ) AS created_at,
         i.aproved_at,
         i.deliver_at,
 
@@ -64,7 +67,10 @@ export async function getRole(req, res) {
         i.status,
         i.pembayaran,
         i.detail,
-        i.created_at,
+        TO_CHAR(
+          i.created_at,
+          'YYYY-MM-DD HH24:MI:SS'
+        ) AS created_at,
         i.aproved_at,
         i.deliver_at,
 
