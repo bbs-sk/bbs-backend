@@ -11,7 +11,10 @@ export async function get(req, res) {
           b.kode_barang,
           bm.jumlah,
           bm.harga_beli,
-          bm.datetime,
+          TO_CHAR(
+            bm.datetime,
+            'YYYY-MM-DD HH24:MI:SS'
+          ) AS datetime,
           bm.status
        FROM tbl_brg_masuk bm
        JOIN tbl_barang b 
@@ -261,7 +264,10 @@ export async function search(req, res) {
           b.kode_barang,
           bm.jumlah,
           bm.harga_beli,
-          bm.datetime,
+          TO_CHAR(
+            bm.datetime,
+            'YYYY-MM-DD HH24:MI:SS'
+          ) AS datetime,
           bm.status
 
       FROM tbl_brg_masuk bm

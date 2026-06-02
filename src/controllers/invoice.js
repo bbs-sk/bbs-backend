@@ -132,9 +132,18 @@ export async function recent(req, res) {
         i.status,
         i.pembayaran,
         i.detail,
-        i.created_at,
-        i.aproved_at,
-        i.deliver_at,
+        TO_CHAR(
+          i.created_at,
+          'YYYY-MM-DD HH24:MI:SS'
+        ) AS created_at,
+        TO_CHAR(
+          i.aproved_at,
+          'YYYY-MM-DD HH24:MI:SS'
+        ) AS aproved_at,
+        TO_CHAR(
+          i.deliver_at,
+          'YYYY-MM-DD HH24:MI:SS'
+        ) AS deliver_at,
 
         EXISTS (
           SELECT 1

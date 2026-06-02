@@ -2,9 +2,6 @@ import express from "express";
 import {
   get,
   getIdInvoice,
-  add,
-  update,
-  remove,
   getMonthly,
   getLaporanPenjualan,
   search,
@@ -15,9 +12,6 @@ const router = express.Router();
 
 router.post("/", get);
 router.post("/invoice", getIdInvoice);
-router.post("/add", add);
-router.post("/update", update);
-router.post("/delete", remove);
 router.post("/search", search);
 router.get("/monthly", getMonthly);
 router.get("/laporan_penjualan", getLaporanPenjualan);
