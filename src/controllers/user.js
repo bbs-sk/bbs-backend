@@ -160,6 +160,12 @@ export async function login(req, res) {
 
     const user = result.rows[0];
 
+    if (user.status === 0) {
+      return res.status(403).json({
+        message: "Akun telah dinonaktifkan. Silakan hubungi administrator.",
+      });
+    }
+
     const isMatch = await bcrypt.compare(password, user.password);
 
     if (!isMatch) {

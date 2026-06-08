@@ -3,12 +3,21 @@ import { pool } from "../config/db.js";
 export async function get(req, res) {
   try {
     const result = await pool.query(
-      `SELECT 
-        *,
-        TO_CHAR(datetime, 'YYYY-MM-DD HH24:MI:SS') AS datetime 
-       FROM tbl_barang 
-       WHERE status = '1' 
-       ORDER BY id_barang DESC`,
+      `SELECT
+        b.*,
+        TO_CHAR(b.datetime, 'YYYY-MM-DD HH24:MI:SS') AS datetime,
+
+        EXISTS (
+          SELECT 1
+          FROM tbl_brg_keluar bk
+          WHERE bk.id_barang = b.id_barang
+        ) AS has_barang_keluar
+
+      FROM tbl_barang b
+
+      WHERE b.status = '1'
+
+      ORDER BY b.id_barang DESC`,
     );
 
     return res.json(result.rows);

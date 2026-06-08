@@ -6,7 +6,13 @@ export async function get(req, res) {
       SELECT
         p.*,
         u1.name AS user_1_nama,
-        u2.name AS user_2_nama
+        u2.name AS user_2_nama,
+
+        EXISTS (
+          SELECT 1
+          FROM tbl_invoice i
+          WHERE i.id_project = p.id_project
+        ) AS has_invoice
       FROM tbl_project p
 
       LEFT JOIN tbl_user u1
