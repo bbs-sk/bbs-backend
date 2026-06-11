@@ -124,7 +124,6 @@ export async function search(req, res) {
         AND (
           nama_barang ILIKE $1
           OR kode_barang ILIKE $1
-          OR satuan ILIKE $1
         )
       ORDER BY id_barang DESC
       `,

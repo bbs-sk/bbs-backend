@@ -197,9 +197,6 @@ export async function search(req, res) {
         p.status = 1
         AND (
           p.nama_project ILIKE $1
-          OR p.alamat ILIKE $1
-          OR u1.name ILIKE $1
-          OR u2.name ILIKE $1
         )
 
       ORDER BY p.id_project DESC

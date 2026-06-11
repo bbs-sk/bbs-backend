@@ -234,8 +234,6 @@ export async function search(req, res) {
       FROM tbl_user
       WHERE
         name ILIKE $1
-        OR username ILIKE $1
-        OR role ILIKE $1
       ORDER BY id_user DESC
       `,
       [`%${keyword}%`],
