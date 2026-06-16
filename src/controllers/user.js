@@ -250,3 +250,88 @@ export async function search(req, res) {
     });
   }
 }
+
+export async function updateProfile(req, res) {
+  const { id_user, name, username } = req.body;
+
+  if (!id_user) {
+    return res.status(400).json({
+      message: "id_user wajib diisi",
+    });
+  }
+
+  try {
+    // Cek username sudah dipakai user lain
+    const cek = await pool.query(
+      `SELECT id_user FROM tbl_user WHERE username = $1 AND id_user != $2`,
+      [username, id_user],
+    );
+
+    if (cek.rows.length > 0) {
+      return res.status(409).json({
+        message: "Username sudah digunakan oleh user lain",
+      });
+    }
+
+    const result = await pool.query(
+      `UPDATE tbl_user
+       SET name = $1,
+           username = $2
+       WHERE id_user = $3`,
+      [name, username, id_user],
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({
+        message: "User tidak ditemukan",
+      });
+    }
+
+    return res.json({
+      message: "Data user berhasil diupdate",
+      affectedRows: result.rowCount,
+    });
+  } catch (err) {
+    return res.status(500).json({
+      message: "Gagal update data",
+      detail: err.message,
+    });
+  }
+}
+
+export async function resetPassword(req, res) {
+  const { id_user, new_password } = req.body;
+
+  if (!id_user || !new_password) {
+    return res.status(400).json({
+      message: "id_user dan new_password wajib diisi",
+    });
+  }
+
+  try {
+    const hashedPassword = await bcrypt.hash(new_password, 10);
+
+    const result = await pool.query(
+      `UPDATE tbl_user
+       SET password = $1
+       WHERE id_user = $2`,
+      [hashedPassword, id_user],
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({
+        message: "User tidak ditemukan",
+      });
+    }
+
+    return res.json({
+      message: "Password berhasil direset",
+      affectedRows: result.rowCount,
+    });
+  } catch (err) {
+    return res.status(500).json({
+      message: "Gagal reset password",
+      detail: err.message,
+    });
+  }
+}

@@ -8,6 +8,8 @@ import {
   getLapangan,
   search,
   restore,
+  updateProfile,
+  resetPassword,
 } from "../controllers/user.js";
 
 const router = express.Router();
@@ -20,5 +22,7 @@ router.post("/restore", restore);
 router.post("/login", login);
 router.post("/get_lapangan", getLapangan);
 router.post("/search", search);
+router.post("/update-profile", updateProfile);
+router.post("/reset-password", resetPassword);
 
 export default router;
