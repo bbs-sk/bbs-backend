@@ -6,7 +6,7 @@ export async function get(req, res) {
       SELECT
         i.id_invoice,
         i.id_user,
-        u.name AS name,
+        i.nama_pemesan AS name,
 
         i.id_project,
         p.nama_project,
@@ -58,7 +58,7 @@ export async function getRole(req, res) {
       SELECT
         i.id_invoice,
         i.id_user,
-        u.name AS name,
+        i.nama_pemesan AS name,
 
         i.id_project,
         p.nama_project,
@@ -123,7 +123,7 @@ export async function recent(req, res) {
       SELECT
         i.id_invoice,
         i.id_user,
-        u.name AS name,
+        i.nama_pemesan AS name,
 
         i.id_project,
         p.nama_project,
@@ -185,6 +185,7 @@ export async function add(req, res) {
       id_user,
       id_project,
       total_harga,
+      nama_pemesan,
       status,
       pembayaran,
       detail,
@@ -198,13 +199,22 @@ export async function add(req, res) {
         id_user,
         id_project,
         total_harga,
+        nama_pemesan,
         status,
         pembayaran,
         detail
       )
-      VALUES ($1, $2, $3, $4, $5, $6)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
       RETURNING id_invoice`,
-      [id_user, id_project, total_harga, status, pembayaran, detail],
+      [
+        id_user,
+        id_project,
+        total_harga,
+        nama_pemesan,
+        status,
+        pembayaran,
+        detail,
+      ],
     );
 
     const status_barang_keluar = status === "selesai" ? 1 : 0;
@@ -297,8 +307,15 @@ export async function update(req, res) {
   try {
     await client.query("BEGIN");
 
-    const { id_invoice, id_project, total_harga, pembayaran, detail, barang } =
-      req.body;
+    const {
+      id_invoice,
+      id_project,
+      total_harga,
+      nama_pemesan,
+      pembayaran,
+      detail,
+      barang,
+    } = req.body;
 
     const oldDetail = await client.query(
       `
@@ -403,11 +420,12 @@ export async function update(req, res) {
       SET
         id_project = $1,
         total_harga = $2,
-        pembayaran = $3,
-        detail = $4
-      WHERE id_invoice = $5
+        nama_pemesan = $3,
+        pembayaran = $4,
+        detail = $5
+      WHERE id_invoice = $6
       `,
-      [id_project, total_harga, pembayaran, detail, id_invoice],
+      [id_project, total_harga, nama_pemesan, pembayaran, detail, id_invoice],
     );
 
     // =========================
@@ -741,7 +759,7 @@ export async function search(req, res) {
       SELECT
         i.id_invoice,
         i.id_user,
-        u.name AS name,
+        i.nama_pemesan AS name,
 
         i.id_project,
         p.nama_project,
