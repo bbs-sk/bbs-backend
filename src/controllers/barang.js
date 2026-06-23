@@ -176,7 +176,7 @@ export async function getKartuStock(req, res) {
     // 1. Ambil info barang
     const barangResult = await pool.query(
       `SELECT nama_barang, kode_barang, satuan FROM tbl_barang WHERE id_barang = $1`,
-      [idBarangNum]
+      [idBarangNum],
     );
 
     if (barangResult.rows.length === 0) {
@@ -191,7 +191,7 @@ export async function getKartuStock(req, res) {
     // Masuk
     const masukSebelum = await pool.query(
       `SELECT COALESCE(SUM(jumlah), 0) AS total FROM tbl_brg_masuk WHERE id_barang = $1 AND status = 1 AND datetime < $2::timestamp`,
-      [idBarangNum, startStr]
+      [idBarangNum, startStr],
     );
     // Keluar
     const keluarSebelum = await pool.query(
@@ -202,12 +202,12 @@ export async function getKartuStock(req, res) {
          AND i.deleted_at IS NULL 
          AND i.status != 'ditolak' 
          AND bk.datetime < $2::timestamp`,
-      [idBarangNum, startStr]
+      [idBarangNum, startStr],
     );
     // Retur (retur mengurangi stok barang rusak)
     const returSebelum = await pool.query(
       `SELECT COALESCE(SUM(jumlah), 0) AS total FROM tbl_retur WHERE id_barang = $1 AND status = 1 AND datetime < $2::timestamp`,
-      [idBarangNum, startStr]
+      [idBarangNum, startStr],
     );
 
     const stokAwal =
@@ -238,8 +238,8 @@ export async function getKartuStock(req, res) {
           bk.harga_jual AS harga,
           p.nama_project AS keterangan
         FROM tbl_brg_keluar bk
-        JOIN tbl_invoice i ON bk.id_invoice = i.id_invoice
-        JOIN tbl_project p ON i.id_project = p.id_project
+        LEFT JOIN tbl_invoice i ON bk.id_invoice = i.id_invoice
+        LEFT JOIN tbl_project p ON i.id_project = p.id_project
         WHERE bk.id_barang = $1 
           AND i.deleted_at IS NULL 
           AND i.status != 'ditolak' 
@@ -258,14 +258,14 @@ export async function getKartuStock(req, res) {
         WHERE r.id_barang = $1 AND r.status = 1 AND r.datetime >= $2::timestamp AND r.datetime <= $3::timestamp
       ) AS mutasi
       ORDER BY datetime ASC, id_transaksi ASC`,
-      [idBarangNum, startStr, endStr]
+      [idBarangNum, startStr, endStr],
     );
 
     // 4. Kalkulasi running balance (stok setelah mutasi)
     let currentStock = stokAwal;
     const mutasi = mutasiResult.rows.map((row) => {
       const qty = Number(row.jumlah);
-      if (row.tipe === 'masuk') {
+      if (row.tipe === "masuk") {
         currentStock += qty;
       } else {
         // keluar atau retur mengurangi stok
@@ -273,7 +273,7 @@ export async function getKartuStock(req, res) {
       }
       return {
         ...row,
-        saldo_akhir: currentStock
+        saldo_akhir: currentStock,
       };
     });
 
@@ -281,9 +281,8 @@ export async function getKartuStock(req, res) {
       barang: barangInfo,
       stok_awal: stokAwal,
       mutasi,
-      stok_akhir: currentStock
+      stok_akhir: currentStock,
     });
-
   } catch (err) {
     return res.status(500).json({
       message: "Gagal mengambil data kartu stok",
@@ -291,4 +290,3 @@ export async function getKartuStock(req, res) {
     });
   }
 }
-
