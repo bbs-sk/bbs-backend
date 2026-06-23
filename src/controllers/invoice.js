@@ -317,6 +317,23 @@ export async function update(req, res) {
       barang,
     } = req.body;
 
+    // Ambil status invoice saat ini untuk melestarikan status barang keluar
+    const invoiceQuery = await client.query(
+      `SELECT status FROM tbl_invoice WHERE id_invoice = $1`,
+      [id_invoice],
+    );
+
+    if (invoiceQuery.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({
+        message: "Invoice tidak ditemukan",
+      });
+    }
+
+    const currentStatus = invoiceQuery.rows[0].status;
+    const status_barang_keluar =
+      currentStatus === "dikirim" || currentStatus === "selesai" ? 1 : 0;
+
     const oldDetail = await client.query(
       `
       SELECT
@@ -468,11 +485,12 @@ export async function update(req, res) {
           id_invoice,
           jumlah,
           harga_jual,
-          profit
+          profit,
+          status
         )
-        VALUES ($1, $2, $3, $4, $5)
+        VALUES ($1, $2, $3, $4, $5, $6)
         `,
-        [item.id_barang, id_invoice, item.jumlah, item.harga_jual, profit],
+        [item.id_barang, id_invoice, item.jumlah, item.harga_jual, profit, status_barang_keluar],
       );
     }
 
@@ -720,7 +738,8 @@ export async function monthly(req, res) {
         TO_CHAR(DATE_TRUNC('month', created_at), 'Mon YYYY') AS bulan,
         SUM(total_harga) AS total
       FROM tbl_invoice
-      WHERE created_at >= DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '4 months'
+      WHERE deleted_at IS NULL
+        AND created_at >= DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '4 months'
       GROUP BY DATE_TRUNC('month', created_at)
       ORDER BY DATE_TRUNC('month', created_at)
     `);
@@ -739,7 +758,8 @@ export async function wait(req, res) {
     const result = await pool.query(`
       SELECT COUNT(*) AS total
       FROM tbl_invoice
-      WHERE status = 'menunggu'
+      WHERE deleted_at IS NULL
+        AND status = 'menunggu'
     `);
 
     return res.json(result.rows[0]);
