@@ -25,13 +25,13 @@ export async function get(req, res) {
 
        FROM tbl_brg_keluar bk
 
-       JOIN tbl_barang b 
+       LEFT JOIN tbl_barang b 
             ON bk.id_barang = b.id_barang
 
-       JOIN tbl_invoice i
+       LEFT JOIN tbl_invoice i
             ON bk.id_invoice = i.id_invoice
 
-       JOIN tbl_project p
+       LEFT JOIN tbl_project p
             ON i.id_project = p.id_project
 
        WHERE bk.status = 1
