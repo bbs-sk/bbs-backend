@@ -197,10 +197,9 @@ export async function getKartuStock(req, res) {
     const keluarSebelum = await pool.query(
       `SELECT COALESCE(SUM(bk.jumlah), 0) AS total 
        FROM tbl_brg_keluar bk
-       JOIN tbl_invoice i ON bk.id_invoice = i.id_invoice
+       LEFT JOIN tbl_invoice i ON bk.id_invoice = i.id_invoice
        WHERE bk.id_barang = $1 
-         AND i.deleted_at IS NULL 
-         AND i.status != 'ditolak' 
+         AND (bk.id_invoice IS NULL OR (i.deleted_at IS NULL AND i.status != 'ditolak'))
          AND bk.datetime < $2::timestamp`,
       [idBarangNum, startStr],
     );
@@ -236,13 +235,12 @@ export async function getKartuStock(req, res) {
           TO_CHAR(bk.datetime, 'YYYY-MM-DD HH24:MI:SS') AS datetime,
           bk.jumlah,
           bk.harga_jual AS harga,
-          p.nama_project AS keterangan
+          COALESCE(p.nama_project, 'Barang Keluar') AS keterangan
         FROM tbl_brg_keluar bk
         LEFT JOIN tbl_invoice i ON bk.id_invoice = i.id_invoice
         LEFT JOIN tbl_project p ON i.id_project = p.id_project
         WHERE bk.id_barang = $1 
-          AND i.deleted_at IS NULL 
-          AND i.status != 'ditolak' 
+          AND (bk.id_invoice IS NULL OR (i.deleted_at IS NULL AND i.status != 'ditolak'))
           AND bk.datetime >= $2::timestamp AND bk.datetime <= $3::timestamp
 
         UNION ALL
