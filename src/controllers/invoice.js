@@ -8,6 +8,7 @@ export async function get(req, res) {
         i.id_user,
         i.nama_pemesan AS name,
         u.role AS user_role,
+        u.name AS user_name,
 
         i.id_project,
         COALESCE(p.nama_project, 'Project Kasir') AS nama_project,
@@ -61,6 +62,7 @@ export async function getRole(req, res) {
         i.id_user,
         i.nama_pemesan AS name,
         u.role AS user_role,
+        u.name AS user_name,
 
         i.id_project,
         COALESCE(p.nama_project, 'Project Kasir') AS nama_project,
@@ -127,6 +129,7 @@ export async function recent(req, res) {
         i.id_user,
         i.nama_pemesan AS name,
         u.role AS user_role,
+        u.name AS user_name,
 
         i.id_project,
         COALESCE(p.nama_project, 'Project Kasir') AS nama_project,
@@ -876,6 +879,7 @@ export async function search(req, res) {
         i.id_user,
         i.nama_pemesan AS name,
         u.role AS user_role,
+        u.name AS user_name,
 
         i.id_project,
         COALESCE(p.nama_project, 'Project Kasir') AS nama_project,

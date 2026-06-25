@@ -208,7 +208,7 @@ export async function login(req, res) {
 export async function getLapangan(req, res) {
   try {
     const result = await pool.query(
-      `SELECT id_user, name
+      `SELECT id_user, name, status
        FROM tbl_user
        WHERE LOWER(role) = LOWER($1)
        ORDER BY id_user DESC`,
