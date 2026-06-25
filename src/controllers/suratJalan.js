@@ -7,13 +7,13 @@ export async function getByInvoice(req, res) {
   try {
     const result = await pool.query(
       `
-      SELECT sj.*, i.id_user, u.name, p.nama_project
+      SELECT sj.*, i.id_user, u.name, COALESCE(p.nama_project, 'Project Kasir') AS nama_project
       FROM tbl_surat_jalan sj
       JOIN tbl_invoice i
         ON sj.id_invoice = i.id_invoice
       JOIN tbl_user u
         ON i.id_user = u.id_user
-      JOIN tbl_project p
+      LEFT JOIN tbl_project p
         ON i.id_project = p.id_project
       WHERE sj.id_invoice = $1
       AND sj.status = 1

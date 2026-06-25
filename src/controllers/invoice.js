@@ -9,7 +9,7 @@ export async function get(req, res) {
         i.nama_pemesan AS name,
 
         i.id_project,
-        p.nama_project,
+        COALESCE(p.nama_project, 'Project Kasir') AS nama_project,
 
         i.total_harga,
         i.status,
@@ -61,7 +61,7 @@ export async function getRole(req, res) {
         i.nama_pemesan AS name,
 
         i.id_project,
-        p.nama_project,
+        COALESCE(p.nama_project, 'Project Kasir') AS nama_project,
 
         i.total_harga,
         i.status,
@@ -126,7 +126,7 @@ export async function recent(req, res) {
         i.nama_pemesan AS name,
 
         i.id_project,
-        p.nama_project,
+        COALESCE(p.nama_project, 'Project Kasir') AS nama_project,
 
         i.total_harga,
         i.status,
@@ -782,7 +782,7 @@ export async function search(req, res) {
         i.nama_pemesan AS name,
 
         i.id_project,
-        p.nama_project,
+        COALESCE(p.nama_project, 'Project Kasir') AS nama_project,
 
         i.total_harga,
         i.status,
@@ -804,6 +804,7 @@ export async function search(req, res) {
         i.deleted_at IS NULL
         AND (
           p.nama_project ILIKE $1
+          OR (i.id_project = 0 AND 'Project Kasir' ILIKE $1)
         )
     `;
 
