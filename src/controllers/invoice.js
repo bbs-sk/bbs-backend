@@ -7,6 +7,7 @@ export async function get(req, res) {
         i.id_invoice,
         i.id_user,
         i.nama_pemesan AS name,
+        u.role AS user_role,
 
         i.id_project,
         COALESCE(p.nama_project, 'Project Kasir') AS nama_project,
@@ -59,6 +60,7 @@ export async function getRole(req, res) {
         i.id_invoice,
         i.id_user,
         i.nama_pemesan AS name,
+        u.role AS user_role,
 
         i.id_project,
         COALESCE(p.nama_project, 'Project Kasir') AS nama_project,
@@ -124,6 +126,7 @@ export async function recent(req, res) {
         i.id_invoice,
         i.id_user,
         i.nama_pemesan AS name,
+        u.role AS user_role,
 
         i.id_project,
         COALESCE(p.nama_project, 'Project Kasir') AS nama_project,
@@ -625,6 +628,38 @@ export async function remove(req, res) {
       [idInvoiceNum],
     );
 
+    // KEMBALIKAN STOCK RETUR (JIKA ADA)
+    const returList = await client.query(
+      `
+      SELECT id_barang, jumlah
+      FROM tbl_retur
+      WHERE id_invoice = $1
+      AND status = 1
+      `,
+      [idInvoiceNum],
+    );
+
+    for (const r of returList.rows) {
+      await client.query(
+        `
+        UPDATE tbl_barang
+        SET jumlah = jumlah + $1
+        WHERE id_barang = $2
+        `,
+        [r.jumlah, r.id_barang],
+      );
+    }
+
+    // NONAKTIFKAN RETUR
+    await client.query(
+      `
+      UPDATE tbl_retur
+      SET status = 0
+      WHERE id_invoice = $1
+      `,
+      [idInvoiceNum],
+    );
+
     await client.query("COMMIT");
 
     return res.status(200).json({
@@ -649,41 +684,70 @@ export async function status(req, res) {
     await client.query("BEGIN");
 
     const { id_invoice, status } = req.body;
+    const newStatusLower = String(status).toLowerCase();
 
-    // UPDATE STATUS INVOICE
-    await client.query(
-      `
-      UPDATE tbl_invoice
-      SET status = $1
-      WHERE id_invoice = $2
-      `,
-      [status, id_invoice],
+    // 1. AMBIL STATUS SEBELUMNYA
+    const invoiceQuery = await client.query(
+      `SELECT status FROM tbl_invoice WHERE id_invoice = $1`,
+      [id_invoice],
     );
 
-    // JIKA STATUS DIKIRIM
-    if (String(status).toLowerCase() === "dikirim") {
-      await client.query(
-        `
-        UPDATE tbl_brg_keluar
-        SET status = 1
-        WHERE id_invoice = $1
-        `,
-        [id_invoice],
-      );
+    if (invoiceQuery.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({
+        message: "Invoice tidak ditemukan",
+      });
     }
 
-    if (String(status).toLowerCase() === "disetujui") {
-      await client.query(
-        `
-        UPDATE tbl_brg_keluar
-        SET status = 0
-        WHERE id_invoice = $1
-        `,
+    const oldStatus = invoiceQuery.rows[0].status;
+    const oldStatusLower = String(oldStatus).toLowerCase();
+
+    // 2. JIKA STATUS BERUBAH DARI 'ditolak' KE STATUS AKTIF (disetujui, dikirim, selesai, dipesan, dll)
+    if (oldStatusLower === "ditolak" && newStatusLower !== "ditolak") {
+      // Ambil detail barang keluar
+      const barangKeluar = await client.query(
+        `SELECT id_barang, jumlah FROM tbl_brg_keluar WHERE id_invoice = $1`,
         [id_invoice],
       );
+
+      // Cek stock terlebih dahulu
+      for (const item of barangKeluar.rows) {
+        const stockResult = await client.query(
+          `SELECT jumlah, nama_barang FROM tbl_barang WHERE id_barang = $1`,
+          [item.id_barang],
+        );
+
+        if (stockResult.rowCount === 0) {
+          throw new Error(`Barang ID ${item.id_barang} tidak ditemukan`);
+        }
+
+        const currentStock = Number(stockResult.rows[0].jumlah);
+        const requiredQty = Number(item.jumlah);
+
+        if (currentStock < requiredQty) {
+          await client.query("ROLLBACK");
+          return res.status(400).json({
+            message: "Stok barang tidak mencukupi untuk memulihkan pesanan ini",
+            detail: `Barang "${stockResult.rows[0].nama_barang}" hanya tersedia ${currentStock} unit, dibutuhkan ${requiredQty} unit.`,
+          });
+        }
+      }
+
+      // Kurangi stock
+      for (const item of barangKeluar.rows) {
+        await client.query(
+          `
+          UPDATE tbl_barang
+          SET jumlah = jumlah - $1
+          WHERE id_barang = $2
+          `,
+          [item.jumlah, item.id_barang],
+        );
+      }
     }
 
-    if (String(status).toLowerCase() === "ditolak") {
+    // 3. JIKA STATUS BERUBAH KE 'ditolak' DAN SEBELUMNYA BUKAN 'ditolak'
+    if (newStatusLower === "ditolak" && oldStatusLower !== "ditolak") {
       const barangKeluar = await client.query(
         `
         SELECT id_barang, jumlah
@@ -696,20 +760,51 @@ export async function status(req, res) {
       for (const item of barangKeluar.rows) {
         await client.query(
           `
-      UPDATE tbl_barang
-      SET jumlah = jumlah + $1
-      WHERE id_barang = $2
-      `,
+          UPDATE tbl_barang
+          SET jumlah = jumlah + $1
+          WHERE id_barang = $2
+          `,
           [item.jumlah, item.id_barang],
         );
       }
 
       await client.query(
         `
-    UPDATE tbl_brg_keluar
-    SET status = 0
-    WHERE id_invoice = $1
-    `,
+        UPDATE tbl_brg_keluar
+        SET status = 0
+        WHERE id_invoice = $1
+        `,
+        [id_invoice],
+      );
+    }
+
+    // 4. UPDATE STATUS INVOICE DI DATABASE
+    await client.query(
+      `
+      UPDATE tbl_invoice
+      SET status = $1
+      WHERE id_invoice = $2
+      `,
+      [status, id_invoice],
+    );
+
+    // 5. UPDATE STATUS BARANG KELUAR
+    if (newStatusLower === "dikirim") {
+      await client.query(
+        `
+        UPDATE tbl_brg_keluar
+        SET status = 1
+        WHERE id_invoice = $1
+        `,
+        [id_invoice],
+      );
+    } else if (newStatusLower === "disetujui") {
+      await client.query(
+        `
+        UPDATE tbl_brg_keluar
+        SET status = 0
+        WHERE id_invoice = $1
+        `,
         [id_invoice],
       );
     }
@@ -780,6 +875,7 @@ export async function search(req, res) {
         i.id_invoice,
         i.id_user,
         i.nama_pemesan AS name,
+        u.role AS user_role,
 
         i.id_project,
         COALESCE(p.nama_project, 'Project Kasir') AS nama_project,

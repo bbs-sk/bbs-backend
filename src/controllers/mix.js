@@ -33,7 +33,10 @@ export async function getActivity(req, res) {
       FROM tbl_brg_keluar bk
       JOIN tbl_barang b 
           ON bk.id_barang = b.id_barang
+      JOIN tbl_invoice i
+          ON bk.id_invoice = i.id_invoice
       WHERE bk.status = 1
+      AND i.deleted_at IS NULL
 
       UNION ALL
 
@@ -50,6 +53,10 @@ export async function getActivity(req, res) {
       FROM tbl_retur r
       JOIN tbl_barang b 
           ON r.id_barang = b.id_barang
+      JOIN tbl_invoice i
+          ON r.id_invoice = i.id_invoice
+      WHERE r.status = 1
+      AND i.deleted_at IS NULL
 
       ORDER BY datetime DESC
       LIMIT 15
