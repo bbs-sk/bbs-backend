@@ -7,7 +7,9 @@ import {
   getTotal,
   search,
   getKartuStock,
+  getKartuStokSemua,
 } from "../controllers/barang.js";
+
 
 const router = express.Router();
 
@@ -18,5 +20,7 @@ router.post("/delete", remove);
 router.get("/total", getTotal);
 router.post("/search", search);
 router.post("/kartu-stok", getKartuStock);
+router.post("/kartu-stok-semua", getKartuStokSemua);
+
 
 export default router;

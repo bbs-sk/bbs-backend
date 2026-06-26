@@ -288,3 +288,134 @@ export async function getKartuStock(req, res) {
     });
   }
 }
+
+export async function getKartuStokSemua(req, res) {
+  const { startDate, endDate } = req.body;
+
+  if (!startDate || !endDate) {
+    return res.status(400).json({
+      message: "startDate dan endDate wajib diisi",
+    });
+  }
+
+  try {
+    const startStr = `${startDate} 00:00:00`;
+    const endStr = `${endDate} 23:59:59`;
+
+    // 1. Ambil semua barang aktif
+    const barangResult = await pool.query(
+      `SELECT id_barang, kode_barang, nama_barang, satuan
+       FROM tbl_barang
+       WHERE status = '1'
+       ORDER BY id_barang ASC`,
+    );
+
+    const semuaBarang = barangResult.rows;
+    if (semuaBarang.length === 0) {
+      return res.json([]);
+    }
+
+    // 2. Batch query masuk SEBELUM startDate (per id_barang)
+    const masukSebelumResult = await pool.query(
+      `SELECT id_barang, COALESCE(SUM(jumlah), 0) AS total
+       FROM tbl_brg_masuk
+       WHERE status = 1 AND datetime < $1::timestamp
+       GROUP BY id_barang`,
+      [startStr],
+    );
+
+    // 3. Batch query keluar SEBELUM startDate (per id_barang)
+    const keluarSebelumResult = await pool.query(
+      `SELECT bk.id_barang, COALESCE(SUM(bk.jumlah), 0) AS total
+       FROM tbl_brg_keluar bk
+       LEFT JOIN tbl_invoice i ON bk.id_invoice = i.id_invoice
+       WHERE (bk.id_invoice IS NULL OR (i.deleted_at IS NULL AND i.status != 'ditolak'))
+         AND bk.datetime < $1::timestamp
+       GROUP BY bk.id_barang`,
+      [startStr],
+    );
+
+    // 4. Batch query retur SEBELUM startDate (per id_barang)
+    const returSebelumResult = await pool.query(
+      `SELECT id_barang, COALESCE(SUM(jumlah), 0) AS total
+       FROM tbl_retur
+       WHERE status = 1 AND datetime < $1::timestamp
+       GROUP BY id_barang`,
+      [startStr],
+    );
+
+    // 5. Batch query masuk DALAM rentang (per id_barang)
+    const masukDalamResult = await pool.query(
+      `SELECT id_barang, COALESCE(SUM(jumlah), 0) AS total
+       FROM tbl_brg_masuk
+       WHERE status = 1 AND datetime >= $1::timestamp AND datetime <= $2::timestamp
+       GROUP BY id_barang`,
+      [startStr, endStr],
+    );
+
+    // 6. Batch query keluar DALAM rentang (per id_barang)
+    const keluarDalamResult = await pool.query(
+      `SELECT bk.id_barang, COALESCE(SUM(bk.jumlah), 0) AS total
+       FROM tbl_brg_keluar bk
+       LEFT JOIN tbl_invoice i ON bk.id_invoice = i.id_invoice
+       WHERE (bk.id_invoice IS NULL OR (i.deleted_at IS NULL AND i.status != 'ditolak'))
+         AND bk.datetime >= $1::timestamp AND bk.datetime <= $2::timestamp
+       GROUP BY bk.id_barang`,
+      [startStr, endStr],
+    );
+
+    // 7. Batch query retur DALAM rentang — digabung ke keluar (Opsi A)
+    const returDalamResult = await pool.query(
+      `SELECT id_barang, COALESCE(SUM(jumlah), 0) AS total
+       FROM tbl_retur
+       WHERE status = 1 AND datetime >= $1::timestamp AND datetime <= $2::timestamp
+       GROUP BY id_barang`,
+      [startStr, endStr],
+    );
+
+    // Helper: buat map id_barang -> total
+    const toMap = (rows) => {
+      const map = {};
+      rows.forEach((r) => { map[r.id_barang] = Number(r.total); });
+      return map;
+    };
+
+    const mapMasukSebelum  = toMap(masukSebelumResult.rows);
+    const mapKeluarSebelum = toMap(keluarSebelumResult.rows);
+    const mapReturSebelum  = toMap(returSebelumResult.rows);
+    const mapMasukDalam    = toMap(masukDalamResult.rows);
+    const mapKeluarDalam   = toMap(keluarDalamResult.rows);
+    const mapReturDalam    = toMap(returDalamResult.rows);
+
+    // 8. Hitung ringkasan per barang
+    const hasil = semuaBarang.map((b) => {
+      const id = b.id_barang;
+      const stokAwal =
+        (mapMasukSebelum[id] || 0) -
+        (mapKeluarSebelum[id] || 0) -
+        (mapReturSebelum[id] || 0);
+
+      const totalMasuk  = mapMasukDalam[id] || 0;
+      const totalKeluar = (mapKeluarDalam[id] || 0) + (mapReturDalam[id] || 0);
+      const stokAkhir   = stokAwal + totalMasuk - totalKeluar;
+
+      return {
+        id_barang:    id,
+        kode_barang:  b.kode_barang,
+        nama_barang:  b.nama_barang,
+        satuan:       b.satuan,
+        stok_awal:    stokAwal,
+        total_masuk:  totalMasuk,
+        total_keluar: totalKeluar,
+        stok_akhir:   stokAkhir,
+      };
+    });
+
+    return res.json(hasil);
+  } catch (err) {
+    return res.status(500).json({
+      message: "Gagal mengambil data kartu stok semua barang",
+      detail: err.message,
+    });
+  }
+}
