@@ -36,7 +36,7 @@ export async function add(req, res) {
   const client = await pool.connect();
 
   try {
-    const { id_barang, jumlah, harga_beli } = req.body;
+    const { id_barang, jumlah, harga_beli, datetime } = req.body;
 
     await client.query("BEGIN");
 
@@ -72,10 +72,10 @@ export async function add(req, res) {
 
     const result = await client.query(
       `INSERT INTO tbl_brg_masuk 
-        (id_barang, jumlah, harga_beli) 
-       VALUES ($1, $2, $3)
+        (id_barang, jumlah, harga_beli, datetime) 
+       VALUES ($1, $2, $3, $4)
        RETURNING id_brg_masuk`,
-      [id_barang, stokMasuk, hargaBaru],
+      [id_barang, stokMasuk, hargaBaru, datetime],
     );
 
     await client.query(
