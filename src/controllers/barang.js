@@ -30,14 +30,18 @@ export async function get(req, res) {
 }
 
 export async function add(req, res) {
-  const { nama_barang, satuan, kode_barang, harga_jual } = req.body;
+  const { nama_barang, satuan, kode_barang, harga_jual, min_jumlah } = req.body;
 
   try {
     const result = await pool.query(
-      `INSERT INTO tbl_barang (nama_barang, satuan, kode_barang, harga_jual) 
-       VALUES ($1, $2, $3, $4)
-       RETURNING id_barang`,
-      [nama_barang, satuan, kode_barang, harga_jual],
+      `INSERT INTO tbl_barang (nama_barang, satuan, kode_barang, harga_jual,min_jumlah)
+      VALUES
+      (
+          $1,$2,$3,$4,$5
+      )
+      RETURNING id_barang
+      `,
+      [nama_barang, satuan, kode_barang, harga_jual, min_jumlah],
     );
 
     return res.status(201).json({
@@ -53,14 +57,21 @@ export async function add(req, res) {
 }
 
 export async function update(req, res) {
-  const { id_barang, kode_barang, nama_barang, satuan, harga_jual } = req.body;
+  const {
+    id_barang,
+    kode_barang,
+    nama_barang,
+    satuan,
+    harga_jual,
+    min_jumlah,
+  } = req.body;
 
   try {
     const result = await pool.query(
       `UPDATE tbl_barang 
-       SET nama_barang = $1, satuan = $2, harga_jual = $3, kode_barang = $4 
-       WHERE id_barang = $5`,
-      [nama_barang, satuan, harga_jual, kode_barang, id_barang],
+       SET nama_barang = $1, satuan = $2, harga_jual = $3, kode_barang = $4, min_jumlah = $5 
+       WHERE id_barang = $6`,
+      [nama_barang, satuan, harga_jual, kode_barang, min_jumlah, id_barang],
     );
 
     if (result.rowCount === 0) {
@@ -376,16 +387,18 @@ export async function getKartuStokSemua(req, res) {
     // Helper: buat map id_barang -> total
     const toMap = (rows) => {
       const map = {};
-      rows.forEach((r) => { map[r.id_barang] = Number(r.total); });
+      rows.forEach((r) => {
+        map[r.id_barang] = Number(r.total);
+      });
       return map;
     };
 
-    const mapMasukSebelum  = toMap(masukSebelumResult.rows);
+    const mapMasukSebelum = toMap(masukSebelumResult.rows);
     const mapKeluarSebelum = toMap(keluarSebelumResult.rows);
-    const mapReturSebelum  = toMap(returSebelumResult.rows);
-    const mapMasukDalam    = toMap(masukDalamResult.rows);
-    const mapKeluarDalam   = toMap(keluarDalamResult.rows);
-    const mapReturDalam    = toMap(returDalamResult.rows);
+    const mapReturSebelum = toMap(returSebelumResult.rows);
+    const mapMasukDalam = toMap(masukDalamResult.rows);
+    const mapKeluarDalam = toMap(keluarDalamResult.rows);
+    const mapReturDalam = toMap(returDalamResult.rows);
 
     // 8. Hitung ringkasan per barang
     const hasil = semuaBarang.map((b) => {
@@ -395,19 +408,19 @@ export async function getKartuStokSemua(req, res) {
         (mapKeluarSebelum[id] || 0) -
         (mapReturSebelum[id] || 0);
 
-      const totalMasuk  = mapMasukDalam[id] || 0;
+      const totalMasuk = mapMasukDalam[id] || 0;
       const totalKeluar = (mapKeluarDalam[id] || 0) + (mapReturDalam[id] || 0);
-      const stokAkhir   = stokAwal + totalMasuk - totalKeluar;
+      const stokAkhir = stokAwal + totalMasuk - totalKeluar;
 
       return {
-        id_barang:    id,
-        kode_barang:  b.kode_barang,
-        nama_barang:  b.nama_barang,
-        satuan:       b.satuan,
-        stok_awal:    stokAwal,
-        total_masuk:  totalMasuk,
+        id_barang: id,
+        kode_barang: b.kode_barang,
+        nama_barang: b.nama_barang,
+        satuan: b.satuan,
+        stok_awal: stokAwal,
+        total_masuk: totalMasuk,
         total_keluar: totalKeluar,
-        stok_akhir:   stokAkhir,
+        stok_akhir: stokAkhir,
       };
     });
 
